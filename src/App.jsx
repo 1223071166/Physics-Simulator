@@ -19,12 +19,12 @@ export default function App() {
 
   
   //=============定义区==================
-  const fieldTemplate = { id: 0, visible: true, start: [-2, -2, -2], end: [2, 2, 2], rotation: [0, 0, 0], magnitude: 20 ,shape:'box',is_infinite: [false, false, false],radius:0,time: { type: 'const', frequency: 1, phase: 0 },innerRadius:0.5
-  };
-  const [particles, setParticles] = useState([{ id: 1, position: [0, 0, 0], radius: 1 ,velocity: [0, 0, 0], charge: 1, mass: 1}]);
-  // 初始化时加入 magnitude 属性，默认 20 
-  const [electricFields, setElectricFields] = useState([{ id: 1, visible: true, start: [-4, 0, -4], end: [0, 4, 0], rotation: [0, 0, 0], magnitude: 20,shape:'box',is_infinite: [false, false, false],radius:1,time: { type: 'const', frequency: 1, phase: 0 },innerRadius:0.5}]);
-  const [magneticFields, setMagneticFields] = useState([{ id: 2, visible: true, start: [1, 0, 1], end: [5, 4, 5], rotation: [45, 0, 0], magnitude: 20,shape:'box' ,is_infinite: [false, false, false],radius:1,time: { type: 'const', frequency: 1, phase: 0 },innerRadius:0.5}]);
+  const fieldTemplate = { id: 0, visible: true, start: [0, 0, 0], end: [2, 2, 2], rotation: [0, 0, 0], magnitude: 20 ,shape:'box',is_infinite: [false, false, false],radius:1,time: { type: 'const', frequency: 1, phase: 0 },innerRadius:0.5};
+  const particleTemplate = { id: 0, position: [0, 0, 0], radius: 1 ,velocity: [0, 0, 0], charge: 1, mass: 1};
+  
+  const [particles, setParticles] = useState([{...structuredClone(particleTemplate),id:1}]);
+  const [electricFields, setElectricFields] = useState([{...structuredClone(fieldTemplate),id:1}]);
+  const [magneticFields, setMagneticFields] = useState([{...structuredClone(fieldTemplate),id:2,start:[3,0,0],end:[5,2,2]}]);
   
   const [menu, setMenu] = useState({ visible: false, x: 0, y: 0 });
   const [menu2, setMenu2] = useState({ visible: false, x: 0, y: 0 });//这是左侧区域的菜单状态
@@ -38,8 +38,8 @@ export default function App() {
   // 折叠状态
   const [particlesExpanded, setParticlesExpanded] = useState(true);
   const [fieldsExpanded, setFieldsExpanded] = useState(true);
-  // 极其硬核的“逆向同步”函数
-  // 负责把 3D 空间里的真实坐标/速度，提取并覆盖到 UI 面板上
+   
+  //“逆向同步”函数,负责把 3D 空间里的真实坐标/速度，提取并覆盖到 UI 面板上
   const syncParticleState = React.useCallback((id, realPos, realVel) => {
     setParticles(prev => prev.map(p => {
       if (p.id === id) {
@@ -54,10 +54,10 @@ export default function App() {
     }));
   }, []);
   // 三个添加实体的函数
-  const addParticle = () => { setParticles([...particles, { id: Date.now(), position: [0, 0, 0], radius: 1,charge: 1,velocity: [0, 0, 0], mass: 1 }]); setMenu({ ...menu, visible: false }); };
-  const addEField = () => { setElectricFields([...electricFields, { id: Date.now(), visible: true, start: [-2, -2, -2], end: [2, 2, 2], rotation: [0, 0, 0], magnitude: 20,is_infinite: [false, false, false],radius:0,time: { type: 'const', frequency: 1, phase: 0 },innerRadius:0.5 }]); setMenu({ ...menu, visible: false }); };
-  const addBField = () => { setMagneticFields([...magneticFields, { id: Date.now(), visible: true, start: [-2, -2, -2], end: [2, 2, 2], rotation: [0, 0, 0], magnitude: 20,is_infinite: [false, false, false],radius:0,time: { type: 'const', frequency: 1, phase: 0 },innerRadius:0.5 }]); setMenu({ ...menu, visible: false }); };
-
+  const addParticle = () => { setParticles([...particles,{...structuredClone(particleTemplate),id:Date.now()}]); setMenu({ ...menu, visible: false }); };
+  const addEField = () => { setElectricFields([...electricFields, {...structuredClone(fieldTemplate),id:Date.now()}]); setMenu({ ...menu, visible: false }); };
+  const addBField = () => { setMagneticFields([...magneticFields, {...structuredClone(fieldTemplate),id:Date.now()}]); setMenu({ ...menu, visible: false }); };
+  //更新实体的函数
   const updateEntity = (setter, id, prop, index, val) => {
     setter(prev => prev.map(item => {
       if (item.id === id) {
@@ -71,7 +71,6 @@ export default function App() {
       return item;
     }));
   };
-
   const removeParticle = (id) => setParticles(particles.filter(p => p.id !== id));
   const removeEField = (id) => setElectricFields(electricFields.filter(f => f.id !== id));
   const removeBField = (id) => setMagneticFields(magneticFields.filter(f => f.id !== id));
@@ -86,7 +85,7 @@ export default function App() {
   ];
 
   // ==========================================
-  // Save & Load 核心逻辑
+  // Save & Load 核心逻辑,注意load时的数据安全处理问题
   // ==========================================
   const fileInputRef = useRef(null);
 
@@ -180,7 +179,7 @@ export default function App() {
 
 
 
-
+//时间函数，用于在运行时将时间归零
   function ClockExporter({ clockRef }) {
     const { clock } = useThree();
     clockRef.current = clock;
@@ -208,7 +207,6 @@ const handleRun = () => {
           <ambientLight intensity={0.5} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
           <ClockExporter clockRef={clockRef} />
-          {/*接入智能坐标轴 */}
           <AdaptiveAxes />
 
           {electricFields.map(f => <FieldVisualizer key={f.id} field={f} type="E" renderTrigger={renderTrigger} />)}

@@ -4,7 +4,7 @@ import { OrbitControls, Text,Trail } from '@react-three/drei';
 import * as THREE from 'three';
 import { createFieldInstance } from '../util/FieldStrategies';
 
-// 🌟 终极物理版 ChargedParticle：Boris 算法 + AABB 碰撞
+// Boris 算法 + AABB 碰撞
 export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync }) {
   const meshRef = useRef();
 
@@ -38,6 +38,33 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
     magneticFields.map(f => createFieldInstance(f, 'B')), 
   [magneticFields]);
 
+  // ==========================================
+  // 🛡️ 子步长安全系数：每步移动距离不超过最小场尺寸的这个比例
+  const SAFETY_RATIO = 0.1;
+
+  // 预计算所有场的最小特征尺寸，用于动态决定子步数
+  const minFieldScale = useMemo(() => {
+    const allFields = [...electricFields, ...magneticFields];
+    if (allFields.length === 0) return Infinity;
+    let minScale = Infinity;
+    for (const f of allFields) {
+      if (f.shape === 'box') {
+        const w = Math.abs(f.end[0] - f.start[0]);
+        const h = Math.abs(f.end[1] - f.start[1]);
+        const d = Math.abs(f.end[2] - f.start[2]);
+        const dims = [w, h, d].filter(v => v > 0);
+        if (dims.length > 0) minScale = Math.min(minScale, Math.min(...dims));
+      } else if (f.shape === 'cylinder') {
+        minScale = Math.min(minScale, (f.radius || 1) * 2);
+      } else if (f.shape === 'torus') {
+        // 环形最危险的尺寸是环形宽度（内外径差），穿越它最容易 tunnel
+        const ringWidth = (f.radius || 2) - (f.innerRadius || 1);
+        minScale = Math.min(minScale, ringWidth * 2);
+      }
+    }
+    return minScale === Infinity ? 10 : minScale;
+  }, [electricFields, magneticFields]);
+
   // 物理引擎内存池：提前声明所有计算过程中的临时向量，防止 GC (垃圾回收) 掉帧
   const euler = useMemo(() => new THREE.Euler(), []);
   const netE = useMemo(() => new THREE.Vector3(), []);
@@ -65,54 +92,67 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
   useFrame(({clock}, delta) => {
     if (!meshRef.current || !isRunning) return;
 
-    const dt = Math.min(delta, 0.1);
-    const p = posRef.current;
-    const elapsedTime = clock.elapsedTime; // 提取总时长用于时变场计算
-    // 1. 搜集当前位置的电场和磁场
-    accumulateFields(eFieldInstances, netE, p,elapsedTime);
-    accumulateFields(bFieldInstances, netB, p,elapsedTime);
-
+    const frameDt = delta;
+    const frameStartTime = clock.elapsedTime - frameDt; // 本帧起始时刻
     const safeMass = particle.mass === 0 ? 0.0001 : particle.mass;
     const qm = particle.charge / safeMass;
+
+    // ==========================================
+    // 🛡️ 动态子步长：根据当前速度和最小场尺寸，决定把 frameDt 拆成几步
+    // maxStepDist = 安全系数 × 最小场特征尺寸
+    // N = ceil(本帧总位移 / maxStepDist)，至少 1 步，最多 64 步（防止极端情况卡顿）
+    // ==========================================
+    const speed = velRef.current.length();
+    const maxStepDist = SAFETY_RATIO * minFieldScale;
+    const estimatedDist = speed * frameDt;
+    const N = Math.min(256, Math.max(1, Math.ceil(estimatedDist / maxStepDist)));
+    const dt = frameDt / N;
     const dt2 = dt / 2.0;
 
-    // ==========================================
-    // 🌟 核心：Boris Integration Algorithm
-    // ==========================================
-    
-    // 准备电场加速度项: (q/m) * E * (dt/2)
-    qmE.copy(netE).multiplyScalar(qm * dt2);
+    for (let step = 0; step < N; step++) {
+      // 子步对应的物理时刻（用于时变场采样，保证正弦/方波相位连续）
+      const stepTime = frameStartTime + (step + 0.5) * dt;
+      const p = posRef.current;
 
-    // 第一步：前半步电场加速 -> vMinus = v + qmE
-    vMinus.copy(velRef.current).add(qmE);
+      // 1. 在当前子步位置采样电场和磁场
+      accumulateFields(eFieldInstances, netE, p, stepTime);
+      accumulateFields(bFieldInstances, netB, p, stepTime);
 
-    // 第二步：磁场纯旋转 (Boris Push)
-    // t = (q/m) * B * (dt/2)
-    tVec.copy(netB).multiplyScalar(qm * dt2);
-    const tMagSq = tVec.lengthSq();
+      // ==========================================
+      // 🌟 核心：Boris Integration Algorithm
+      // ==========================================
 
-    // vPrime = vMinus + (vMinus x t)
-    crossTemp1.crossVectors(vMinus, tVec);
-    vPrime.copy(vMinus).add(crossTemp1);
+      // 准备电场加速度项: (q/m) * E * (dt/2)
+      qmE.copy(netE).multiplyScalar(qm * dt2);
 
-    // s = 2t / (1 + |t|^2)
-    sVec.copy(tVec).multiplyScalar(2.0 / (1.0 + tMagSq));
+      // 第一步：前半步电场加速 -> vMinus = v + qmE
+      vMinus.copy(velRef.current).add(qmE);
 
-    // vPlus = vMinus + (vPrime x s)
-    crossTemp2.crossVectors(vPrime, sVec);
-    const vPlus = vMinus.clone().add(crossTemp2); // 这里用一个 clone 防止互相污染
+      // 第二步：磁场纯旋转 (Boris Push)
+      tVec.copy(netB).multiplyScalar(qm * dt2);
+      const tMagSq = tVec.lengthSq();
 
-    // 第三步：后半步电场加速 -> vNew = vPlus + qmE
-    velRef.current.copy(vPlus).add(qmE);
+      // vPrime = vMinus + (vMinus × t)
+      crossTemp1.crossVectors(vMinus, tVec);
+      vPrime.copy(vMinus).add(crossTemp1);
 
-    // 第四步：更新物理位置 -> pNew = p + vNew * dt
-    posRef.current.add(velRef.current.clone().multiplyScalar(dt));
-    
-    // ==========================================
+      // s = 2t / (1 + |t|²)
+      sVec.copy(tVec).multiplyScalar(2.0 / (1.0 + tMagSq));
+
+      // vPlus = vMinus + (vPrime × s)
+      crossTemp2.crossVectors(vPrime, sVec);
+      const vPlus = vMinus.clone().add(crossTemp2);
+
+      // 第三步：后半步电场加速 -> vNew = vPlus + qmE
+      velRef.current.copy(vPlus).add(qmE);
+
+      // 第四步：更新位置
+      posRef.current.addScaledVector(velRef.current, dt);
+    }
 
     meshRef.current.position.copy(posRef.current);
-    meshRef.current.rotation.x += dt * 0.5;
-    meshRef.current.rotation.y += dt * 0.5;
+    meshRef.current.rotation.x += frameDt * 0.5;
+    meshRef.current.rotation.y += frameDt * 0.5;
   });
 
   const particleColor = particle.charge > 0 ? "#ff4444" : (particle.charge < 0 ? "#4444ff" : "cyan");
