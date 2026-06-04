@@ -1,0 +1,86 @@
+{
+  "particles": [
+    {
+      "id": 1,
+      "position": [
+        0,
+        0,
+        -4
+      ],
+      "radius": 0.5,
+      "velocity": [
+        0,
+        0,
+        -20
+      ],
+      "charge": 1,
+      "mass": 1
+    }
+  ],
+  "electricFields": [],
+  "magneticFields": [
+    {
+      "id": 1780549451154,
+      "visible": true,
+      "start": [
+        0,
+        0,
+        0
+      ],
+      "end": [
+        200,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        -90
+      ],
+      "magnitude": 5,
+      "is_infinite": [
+        false,
+        false
+      ],
+      "radius": 4,
+      "time": {
+        "type": "const",
+        "frequency": 1,
+        "phase": 0
+      },
+      "innerRadius": 0.5,
+      "shape": "cylinder"
+    },
+    {
+      "id": 1780549502253,
+      "visible": true,
+      "start": [
+        0,
+        0,
+        0
+      ],
+      "end": [
+        200,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "magnitude": 10,
+      "is_infinite": [
+        false
+      ],
+      "radius": 4,
+      "time": {
+        "type": "const",
+        "frequency": 1,
+        "phase": 0
+      },
+      "innerRadius": 6,
+      "shape": "torus"
+    }
+  ]
+}
