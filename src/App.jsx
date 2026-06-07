@@ -20,7 +20,7 @@ export default function App() {
   
   //=============定义区==================
   const fieldTemplate = { id: 0, visible: true, start: [0, 0, 0], end: [2, 2, 2], rotation: [0, 0, 0], magnitude: 20 ,shape:'box',is_infinite: [false, false, false],radius:1,time: { type: 'const', frequency: 1, phase: 0 },innerRadius:0.5};
-  const particleTemplate = { id: 0, position: [0, 0, 0], radius: 1 ,velocity: [0, 0, 0], charge: 1, mass: 1};
+  const particleTemplate = { id: 0, position: [0, 0, 0], radius: 1 ,velocity: [0, 0, 0], charge: 1, mass: 1,trailVisible:true};
   
   const [particles, setParticles] = useState([{...structuredClone(particleTemplate),id:1}]);
   const [electricFields, setElectricFields] = useState([{...structuredClone(fieldTemplate),id:1}]);
@@ -38,7 +38,15 @@ export default function App() {
   // 折叠状态
   const [particlesExpanded, setParticlesExpanded] = useState(true);
   const [fieldsExpanded, setFieldsExpanded] = useState(true);
-   
+  //全局运动速度
+  const [speed,setSpeed] = useState(1);
+  // 轨迹全局设置
+  const [trailInfo, setTrailInfo] = useState({
+    color: '',        // 空字符串表示"跟随粒子颜色"
+    width: 0.8,       // 相对于 particle.radius 的倍数
+    length: 600,      // Trail 的 length（帧数）
+  });
+  const [trailPanelOpen, setTrailPanelOpen] = useState(false);
   //“逆向同步”函数,负责把 3D 空间里的真实坐标/速度，提取并覆盖到 UI 面板上
   const syncParticleState = React.useCallback((id, realPos, realVel) => {
     setParticles(prev => prev.map(p => {
@@ -111,70 +119,129 @@ export default function App() {
   const handleLoad = (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
+  
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        
-        // ==========================================
-        // 🛡️ 核心护甲：数据清洗函数 (Sanitization)
-        // ==========================================
-        
-        // 1. 向量清洗：确保传入的肯定是长度为 3 的数字数组
-        const sanitizeVec = (vec, defaultVec = [0, 0, 0]) => {
-          if (!Array.isArray(vec) || vec.length !== 3) return defaultVec;
-          return vec.map(v => (isNaN(parseFloat(v)) ? 0 : parseFloat(v)));
+  
+        // ══════════════════════════════════════════════════════
+        // 🛡️ 原子级数值清洗工具集
+        // ══════════════════════════════════════════════════════
+  
+        // 安全数字：必须是有限实数，不接受 NaN / Infinity / null / 字符串垃圾
+        const safeNum = (val, fallback) => {
+          const n = parseFloat(val);
+          return (Number.isFinite(n)) ? n : fallback;
         };
-
-        // 2. 粒子清洗：锁死质量和半径的下限
+  
+        // 有下限的安全数字（用于 mass、radius 等物理上不能为零/负的量）
+        const safeNumMin = (val, fallback, min) => Math.max(min, safeNum(val, fallback));
+  
+        // 有上下限的安全数字（用于归一化参数、角度等有明确范围的量）
+        const safeNumClamp = (val, fallback, min, max) => {
+          const n = safeNum(val, fallback);
+          return Math.min(max, Math.max(min, n));
+        };
+  
+        // 安全布尔：只认 true/false，其他一律降级为 fallback
+        const safeBool = (val, fallback) =>
+          typeof val === 'boolean' ? val : fallback;
+  
+        // 安全枚举：值必须在白名单内，否则取 fallback
+        const safeEnum = (val, allowed, fallback) =>
+          allowed.includes(val) ? val : fallback;
+  
+        // 安全向量：长度必须严格为 3，每个分量独立清洗
+        const safeVec3 = (val, fallback) => {
+          if (!Array.isArray(val) || val.length !== 3) return [...fallback];
+          return val.map((v, i) => safeNum(v, fallback[i]));
+        };
+  
+        // 安全 bool 向量（用于 is_infinite）
+        const safeBoolVec3 = (val, fallback) => {
+          if (!Array.isArray(val) || val.length !== 3) return [...fallback];
+          return val.map((v, i) => safeBool(v, fallback[i]));
+        };
+  
+        // 安全 id：必须是非空的 number 或 string
+        const safeId = (val) =>
+          (val !== null && val !== undefined && val !== '' && Number.isFinite(Number(val)) === false
+            ? val                           // 合法字符串 id
+            : (Number.isFinite(Number(val)) ? Number(val) : Date.now() + Math.random()));
+  
+        // 安全 time 子对象（场的时变参数）
+        const safeTime = (val, def) => {
+          const d = def ?? { type: 'const', frequency: 1, phase: 0 };
+          if (!val || typeof val !== 'object') return { ...d };
+          return {
+            type:      safeEnum(val.type, ['const', 'sin', 'square', 'sawtooth'], d.type),
+            frequency: safeNumMin(val.frequency, d.frequency, 0),   // 频率不能为负
+            phase:     safeNumClamp(val.phase, d.phase, -Math.PI * 2, Math.PI * 2),
+          };
+        };
+  
+        // ══════════════════════════════════════════════════════
+        // 🧬 实体级清洗：粒子
+        // ══════════════════════════════════════════════════════
+        const DEF_P = particleTemplate; // 直接引用模板作为默认值来源
+  
         if (data.particles && Array.isArray(data.particles)) {
-          const safeParticles = data.particles.map(p => ({
-            ...p,
-            id: p.id || Date.now() + Math.random(), // 防止 id 丢失
-            position: sanitizeVec(p.position),
-            velocity: sanitizeVec(p.velocity),
-            charge: isNaN(parseFloat(p.charge)) ? 1 : parseFloat(p.charge),
-            // 🌟 终极防御：质量最小 0.0001（防止除以0），半径最小 0.1（防止看不见）
-            mass: Math.max(0.0001, parseFloat(p.mass) || 1), 
-            radius: Math.max(0.1, parseFloat(p.radius) || 1)
-          }));
+          const safeParticles = data.particles.map(p => {
+            if (!p || typeof p !== 'object') return { ...structuredClone(DEF_P), id: Date.now() + Math.random() };
+            return {
+              id:           safeId(p.id),
+              position:     safeVec3(p.position,     DEF_P.position),
+              velocity:     safeVec3(p.velocity,     DEF_P.velocity),
+              charge:       safeNum(p.charge,        DEF_P.charge),           // 电荷允许负数和零
+              mass:         safeNumMin(p.mass,       DEF_P.mass,    0.0001),  // 质量最小 0.0001，防除零
+              radius:       safeNumMin(p.radius,     DEF_P.radius,  0.1),     // 半径最小 0.1，防隐形
+              trailVisible: safeBool(p.trailVisible, DEF_P.trailVisible),
+            };
+          });
           setParticles(safeParticles);
         }
-
-        // 3. 场数据清洗 (电场与磁场通用)
+  
+        // ══════════════════════════════════════════════════════
+        // 🧲 实体级清洗：场（电场/磁场通用）
+        // ══════════════════════════════════════════════════════
+        const DEF_F = fieldTemplate;
+        const VALID_SHAPES = ['box', 'cylinder', 'torus', 'sphere'];
+  
         const sanitizeFields = (fields) => {
-          if (!fields || !Array.isArray(fields)) return [];
-          return fields.map(f => ({
-            ...f,
-            id: f.id || Date.now() + Math.random(),
-            visible: typeof f.visible === 'boolean' ? f.visible : true,
-            magnitude: isNaN(parseFloat(f.magnitude)) ? 0 : parseFloat(f.magnitude),
-            start: sanitizeVec(f.start, [-2, -2, -2]),
-            end: sanitizeVec(f.end, [2, 2, 2]),
-            rotation: sanitizeVec(f.rotation, [0, 0, 0]),
-            shape: f.shape || 'box'
-          }));
+          if (!Array.isArray(fields)) return [];
+          return fields.map(f => {
+            if (!f || typeof f !== 'object') return { ...structuredClone(DEF_F), id: Date.now() + Math.random() };
+            return {
+              id:          safeId(f.id),
+              visible:     safeBool(f.visible,      DEF_F.visible),
+              magnitude:   safeNum(f.magnitude,     DEF_F.magnitude),         // 允许负场强（反向场）
+              shape:       safeEnum(f.shape,        VALID_SHAPES, DEF_F.shape),
+              start:       safeVec3(f.start,        DEF_F.start),
+              end:         safeVec3(f.end,          DEF_F.end),
+              rotation:    safeVec3(f.rotation,     DEF_F.rotation),
+              is_infinite: safeBoolVec3(f.is_infinite, DEF_F.is_infinite),
+              radius:      safeNumMin(f.radius,     DEF_F.radius,      0.01), // 半径不能为零
+              innerRadius: safeNumMin(f.innerRadius,DEF_F.innerRadius, 0),    // 内径允许为零
+              time:        safeTime(f.time,         DEF_F.time),
+            };
+          });
         };
-
+  
         if (data.electricFields) setElectricFields(sanitizeFields(data.electricFields));
         if (data.magneticFields) setMagneticFields(sanitizeFields(data.magneticFields));
-        
-        // ==========================================
-
-        // 强制暂停引擎，并触发底层物理重置
+  
+        // 强制暂停引擎并触发底层物理重置
         setIsRunning(false);
         setResetTrigger(prev => prev + 1);
-        
+  
       } catch (error) {
-        // 如果文件根本不是 JSON，或者被乱码破坏得连 parse 都失败了
         alert("存档文件已损坏或格式非法！");
         console.error("加载失败:", error);
       }
     };
     reader.readAsText(file);
-    
-    event.target.value = ''; 
+    event.target.value = '';
   };
 
 
@@ -209,8 +276,8 @@ const handleRun = () => {
           <ClockExporter clockRef={clockRef} />
           <AdaptiveAxes />
 
-          {electricFields.map(f => <FieldVisualizer key={f.id} field={f} type="E" renderTrigger={renderTrigger} />)}
-          {magneticFields.map(f => <FieldVisualizer key={f.id} field={f} type="B" renderTrigger={renderTrigger} />)}
+          {electricFields.map(f => <FieldVisualizer key={f.id} field={f} type="E" renderTrigger={renderTrigger} globalSpeed={speed}/>)}
+          {magneticFields.map(f => <FieldVisualizer key={f.id} field={f} type="B" renderTrigger={renderTrigger} globalSpeed={speed} />)}
           {particles.map(p => (
             <ChargedParticle 
               key={p.id} 
@@ -221,6 +288,9 @@ const handleRun = () => {
               resetTrigger={resetTrigger}      // 传入重置触发器
               renderTrigger={renderTrigger}    // 传入渲染触发器
               onSync={syncParticleState}       // 传入状态逆向同步方法
+              globalSpeed={speed}              // 传入全局速度
+              trailInfo={trailInfo}            // 传入全局轨迹设置 
+
             />
           ))}
           <OrbitControls 
@@ -275,7 +345,100 @@ const handleRun = () => {
         <button onClick={() => controlsRef.current?.reset()} style={{ width: '100%', padding: '10px', backgroundColor: '#e67e22', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '20px' }}>
           🎥 Reset Camera
         </button>
+        {/* ========== 轨迹设置按钮 + 面板 ========== */}
+        <button
+          onClick={() => setTrailPanelOpen(o => !o)}
+          style={{ width: '100%', padding: '10px', backgroundColor: trailPanelOpen ? '#1a6b8a' : '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '10px' }}
+        >
+          ✨ Trail Settings {trailPanelOpen ? '▲' : '▼'}
+        </button>
 
+        {trailPanelOpen && (
+          <div style={{ backgroundColor: '#1a1a2e', border: '1px solid #17a2b8', borderRadius: '6px', padding: '14px', marginBottom: '20px' }}>
+            
+            {/* 颜色 */}
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', color: '#aaa' }}>Trail Color</label>
+                <label style={{ fontSize: '11px', color: '#666', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={trailInfo.color === ''}
+                    onChange={(e) => setTrailInfo(t => ({ ...t, color: e.target.checked ? '' : '#ffffff' }))}
+                    style={{ cursor: 'pointer', accentColor: '#17a2b8' }}
+                  />
+                  Auto (follow particle)
+                </label>
+              </div>
+              {trailInfo.color !== '' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    type="color"
+                    value={trailInfo.color}
+                    onChange={(e) => setTrailInfo(t => ({ ...t, color: e.target.value }))}
+                    style={{ width: '48px', height: '32px', border: 'none', borderRadius: '4px', cursor: 'pointer', backgroundColor: 'transparent', padding: 0 }}
+                  />
+                  <span style={{ fontSize: '13px', color: '#ccc', fontFamily: 'monospace' }}>{trailInfo.color}</span>
+                </div>
+              )}
+            </div>
+
+            {/* 粗细 */}
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ fontSize: '13px', color: '#aaa' }}>Width multiplier</label>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>{trailInfo.width.toFixed(2)}×</span>
+              </div>
+              <input
+                type="range" min={0.1} max={5} step={0.05} value={trailInfo.width}
+                onChange={(e) => setTrailInfo(t => ({ ...t, width: parseFloat(e.target.value) }))}
+                style={{ width: '100%', accentColor: '#17a2b8', cursor: 'pointer' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#555', marginTop: '2px' }}>
+                <span>thin</span><span>thick</span>
+              </div>
+            </div>
+
+            {/* 持续时间（length） */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ fontSize: '13px', color: '#aaa' }}>Length (frames)</label>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>{trailInfo.length}</span>
+              </div>
+              <input
+                type="range" min={10} max={2000} step={10} value={trailInfo.length}
+                onChange={(e) => setTrailInfo(t => ({ ...t, length: parseInt(e.target.value) }))}
+                style={{ width: '100%', accentColor: '#17a2b8', cursor: 'pointer' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#555', marginTop: '2px' }}>
+                <span>short</span><span>long</span>
+              </div>
+            </div>
+
+          </div>
+        )}
+        {/* ========== 全局速度控制 ========== */}
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <label style={{ fontSize: '14px', color: '#aaa' }}>Simulation Speed</label>
+            <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fff', minWidth: '32px', textAlign: 'right' }}>
+              {speed.toFixed(2)}x
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={speed}
+            onChange={(e) => setSpeed(parseFloat(e.target.value))}
+            style={{ width: '100%', accentColor: '#2ecc71', cursor: 'pointer' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#666', marginTop: '3px' }}>
+            <span>0 (paused)</span>
+            <span>1x (full)</span>
+          </div>
+        </div>
         {/* ========== 粒子折叠分组 ========== */}
         <div 
           style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: '10px' }} 

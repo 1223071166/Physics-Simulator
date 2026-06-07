@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { createFieldInstance } from '../util/FieldStrategies';
 
 // Boris 算法 + AABB 碰撞
-export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync }) {
+export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync,globalSpeed,trailInfo }) {
   const meshRef = useRef();
 
   const posRef = useRef(new THREE.Vector3(...particle.position));
@@ -80,11 +80,11 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
   const qmE = useMemo(() => new THREE.Vector3(), []);
 
   // 辅助函数：计算场强叠加
-  const accumulateFields = (fieldInstances, netVector, currentPos,time) => {
+  const accumulateFields = (fieldInstances, netVector, currentPos,time,globalSpeed) => {
     netVector.set(0, 0, 0); // 每帧清零
     for (let i = 0; i < fieldInstances.length; i++) {
       // 把临时向量丢进去让场去修改
-      fieldInstances[i].getVector(currentPos, time, tempFieldVec);
+      fieldInstances[i].getVector(currentPos, time, tempFieldVec,globalSpeed);
       netVector.add(tempFieldVec);
     }
   };
@@ -92,7 +92,7 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
   useFrame(({clock}, delta) => {
     if (!meshRef.current || !isRunning) return;
 
-    const frameDt = delta;
+    const frameDt = delta*globalSpeed;
     const frameStartTime = clock.elapsedTime - frameDt; // 本帧起始时刻
     const safeMass = particle.mass === 0 ? 0.0001 : particle.mass;
     const qm = particle.charge / safeMass;
@@ -115,8 +115,8 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
       const p = posRef.current;
 
       // 1. 在当前子步位置采样电场和磁场
-      accumulateFields(eFieldInstances, netE, p, stepTime);
-      accumulateFields(bFieldInstances, netB, p, stepTime);
+      accumulateFields(eFieldInstances, netE, p, stepTime,globalSpeed);
+      accumulateFields(bFieldInstances, netB, p, stepTime,globalSpeed);
 
       // ==========================================
       // 🌟 核心：Boris Integration Algorithm
@@ -157,19 +157,31 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
 
   const particleColor = particle.charge > 0 ? "#ff4444" : (particle.charge < 0 ? "#4444ff" : "cyan");
 
+  // 解析 trailInfo，填入默认值
+  const trailColor  = (trailInfo?.color && trailInfo.color !== '') ? trailInfo.color : particleColor;
+  const trailWidth  = particle.radius * (trailInfo?.width  ?? 0.8);
+  const trailLength = trailInfo?.length ?? 600;
+
+  const meshContent = (
+    <mesh position={particle.position} ref={meshRef}>
+      <sphereGeometry args={[particle.radius, 32, 32]} />
+      <meshStandardMaterial color={particleColor} wireframe={true} />
+    </mesh>
+  );
+
+  if (particle.trailVisible === false) {
+    return meshContent;
+  }
+
   return (
-    // 🌟 将原本的 mesh 用 Trail 组件包裹起来
     <Trail
-      key={resetTrigger}           // 绝妙的防御：每次重置物理状态时，彻底销毁旧尾迹，防止画出“瞬移直线”
-      width={particle.radius * 0.8} // 尾巴的宽度（跟随粒子半径自适应）
-      length={600}                  // 尾巴的长度（记录多少帧的历史坐标，越大越长，但太大会耗性能）
-      color={particleColor}         // 尾迹的颜色
-      attenuation={(t) => t * t}    // 极具美感的衰减函数：让尾巴末端像流星一样极其平滑地变细、消失
+      key={resetTrigger}
+      width={trailWidth}
+      length={trailLength}
+      color={trailColor}
+      attenuation={(t) => t * t}
     >
-      <mesh position={particle.position} ref={meshRef}>
-        <sphereGeometry args={[particle.radius, 32, 32]} />
-        <meshStandardMaterial color={particleColor} wireframe={true} />
-      </mesh>
+      {meshContent}
     </Trail>
   );
 }

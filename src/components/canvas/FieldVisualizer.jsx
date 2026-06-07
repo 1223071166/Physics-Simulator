@@ -257,7 +257,7 @@ const SHAPE_STRATEGIES = {
   }
 };
 
-function FieldArrow({ position, field, type, color }) {
+function FieldArrow({ position, field, type, color ,globalSpeed}) {
   const fieldInstance = useMemo(() => createFieldInstance(field), [field]);
 
   // ─── imperative refs，直接指向 Three.js 对象 ──────────────────────────────
@@ -280,7 +280,7 @@ function FieldArrow({ position, field, type, color }) {
     if (!fieldInstance || !groupRef.current) return;
 
     // 1. 从物理实例获取当前时刻的场向量（已包含正弦/方波调制和正负值）
-    fieldInstance.getVector(position, clock.elapsedTime, _vec.current);
+    fieldInstance.getVector(position, clock.elapsedTime, _vec.current,globalSpeed);
 
     const signedMag = _vec.current.length() * (
       // 保留符号：用场向量与方向向量的点积判断正负
@@ -363,7 +363,7 @@ function FieldArrow({ position, field, type, color }) {
   );
   
 }
-export default function FieldVisualizer({ field, type, renderTrigger }) {
+export default function FieldVisualizer({ field, type, renderTrigger ,globalSpeed}) {
   // 🛡️ 防御：如果隐身或场强为0，直接不渲染任何东西
   if (!field.visible || field.magnitude === 0) return null;
 
@@ -410,6 +410,7 @@ export default function FieldVisualizer({ field, type, renderTrigger }) {
           field={field} 
           type={type} 
           color={color} 
+          globalSpeed={globalSpeed}
         />
       ))}
     </group>

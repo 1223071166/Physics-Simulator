@@ -35,12 +35,12 @@ export class BaseField {
   
     // 统一的随时间变化的强度系数计算
     // 公式：系数 = sin(2 * π * f * t + φ)
-    getTimeFactor(time) {
+    getTimeFactor(time,globalSpeed) {
       if (this.timeConfig.type === 'const') return 1;
-  
+   
       const freq = this.timeConfig.frequency || 1;
       const phase = this.timeConfig.phase || 0;
-      const wt = 2 * Math.PI * freq * time + phase;
+      const wt = 2 * Math.PI * freq * time *globalSpeed + phase;
   
       if (this.timeConfig.type === 'sine') {
         return Math.sin(wt);
@@ -51,7 +51,7 @@ export class BaseField {
     }
   
     // 核心方法：子类必须覆盖此方法
-    getVector(position, time,targetVector) {
+    getVector(position, time,targetVector,globalSpeed) {
       targetVector.set(0, 0, 0);
     }
   }
@@ -90,7 +90,7 @@ export class BaseField {
       ];
     }
   
-    getVector(position, time, targetVector) {
+    getVector(position, time, targetVector,globalSpeed) {
         if (this.magnitude === 0) {
           targetVector.set(0, 0, 0);
           return;
@@ -106,7 +106,7 @@ export class BaseField {
           }
         }
       
-        const currentMagnitude = this.magnitude * this.getTimeFactor(time);
+        const currentMagnitude = this.magnitude * this.getTimeFactor(time,globalSpeed);
         targetVector.copy(this.baseDirection).multiplyScalar(currentMagnitude);
     }
 }
@@ -148,7 +148,7 @@ export class CylinderField extends BaseField {
       this._radialVec = new THREE.Vector3(); // 粒子到中轴线的垂直向量
     }
   
-    getVector(position, time, targetVector) {
+    getVector(position, time, targetVector,globalSpeed) {
       // 防御性拦截：无场强、或者圆柱长度为 0 (变成了球)
       if (this.magnitude === 0 || this.axisLenSq === 0) {
         targetVector.set(0, 0, 0);
@@ -186,7 +186,7 @@ export class CylinderField extends BaseField {
       }
   
       // 3. 生效区内：应用时变因子并返回场强
-      const currentMagnitude = this.magnitude * this.getTimeFactor(time);
+      const currentMagnitude = this.magnitude * this.getTimeFactor(time,globalSpeed);
       
       // 写入目标向量
       targetVector.copy(this.baseDirection).multiplyScalar(currentMagnitude);
@@ -230,7 +230,7 @@ export class TorusField extends BaseField {
     this._tangentVec = new THREE.Vector3(); // 切向向量（叉积结果）
   }
 
-  getVector(position, time, targetVector) {
+  getVector(position, time, targetVector,globalSpeed) {
     // 防御：无场强 或 轴线退化为点
     if (this.magnitude === 0 || this.axisLenSq === 0) {
       targetVector.set(0, 0, 0);
@@ -267,7 +267,7 @@ export class TorusField extends BaseField {
       .normalize();
 
     // ── 6. 应用时变因子，写入目标向量 ──────────────────────────────────────
-    const currentMagnitude = this.magnitude * this.getTimeFactor(time);
+    const currentMagnitude = this.magnitude * this.getTimeFactor(time,globalSpeed);
     targetVector.copy(this._tangentVec).multiplyScalar(currentMagnitude);
   }
 }
