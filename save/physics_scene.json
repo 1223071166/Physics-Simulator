@@ -1,0 +1,64 @@
+{
+  "particles": [
+    {
+      "id": 1333,
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "radius": -1,
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "charge": 1,
+      "mass": 0
+    }
+  ],
+  "electricFields": [
+    {
+      "id": 1,
+      "visible": true,
+      "start": [
+        -400,
+        -400,
+        -6
+      ],
+      "end": [
+        400,
+        400,
+        6
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "magnitude": -50
+    }
+  ],
+  "magneticFields": [
+    {
+      "id": 2,
+      "visible": true,
+      "start": [
+        1,
+        0,
+        1
+      ],
+      "end": [
+        5,
+        4,
+        5
+      ],
+      "rotation": [
+        45,
+        0,
+        0
+      ],
+      "magnitude": 20
+    }
+  ]
+}

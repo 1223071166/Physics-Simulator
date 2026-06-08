@@ -16,6 +16,16 @@ export default function ParticleCard({ particle, index, onUpdate, onDelete }) {
     <div style={{ backgroundColor: '#333', padding: '12px', borderRadius: '6px', marginBottom: '15px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
         <strong style={{ color: 'cyan', fontSize: '14px' }}>Particle {index + 1}</strong>
+        {/* 轨迹显示/隐藏勾选框 */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#ccc', cursor: 'pointer' ,color:'white'}}>
+          <input
+            type="checkbox"
+            checked={particle.trailVisible ?? true}
+            onChange={(e) => onUpdate(particle.id, 'trailVisible', null, e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'cyan' }}
+          />
+          Trail
+        </label>
         <button onClick={() => onDelete(particle.id)} style={{ backgroundColor: '#ff4b4b', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer', padding: '2px 8px', fontSize: '12px' }}>Del</button>
       </div>
       {/* 🌟 优雅的表头：标识 X Y Z */}
