@@ -1,7 +1,7 @@
 import React from 'react';
 import SmartInput from './SmartInput';
 // 粒子卡片
-export default function ParticleCard({ particle, index, onUpdate, onDelete }) {
+export default function ParticleCard({ particle, index, onUpdate, onDelete}) {
   // 提取一个通用的横向三维向量输入行
   const renderVecRow = (label, prop) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
@@ -16,7 +16,7 @@ export default function ParticleCard({ particle, index, onUpdate, onDelete }) {
     <div style={{ backgroundColor: '#333', padding: '12px', borderRadius: '6px', marginBottom: '15px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
         <strong style={{ color: 'cyan', fontSize: '14px' }}>Particle {index + 1}</strong>
-        {/* 轨迹显示/隐藏勾选框 */}
+        {/* 轨迹显示/隐藏勾选框与重力启用框 */}
         <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#ccc', cursor: 'pointer' ,color:'white'}}>
           <input
             type="checkbox"
@@ -26,8 +26,24 @@ export default function ParticleCard({ particle, index, onUpdate, onDelete }) {
           />
           Trail
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#ccc', cursor: 'pointer' ,color:'white'}}>
+          <input
+            type="checkbox"
+            checked={particle.enableGravity ?? false}
+            onChange={(e) => onUpdate(particle.id, 'enableGravity', null, e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'cyan' }}
+          />
+          Gravity
+        </label>
         <button onClick={() => onDelete(particle.id)} style={{ backgroundColor: '#ff4b4b', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer', padding: '2px 8px', fontSize: '12px' }}>Del</button>
       </div>
+      {/*如果有重力，可以自定义修改重力常量（默认为10） */}
+      {particle.enableGravity && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
+          <span style={{ color: '#888', fontSize: '12px' }}>g:</span>
+          <SmartInput value={particle.gravityConstant} onCommit={(val) => onUpdate(particle.id, 'gravityConstant', null, Math.max(0, val))} />
+        </div>
+      )}
       {/* 🌟 优雅的表头：标识 X Y Z */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
         <span style={{ width: '25px' }}></span>

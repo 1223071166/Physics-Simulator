@@ -20,7 +20,7 @@ export default function App() {
   
   //=============定义区==================
   const fieldTemplate = { id: 0, visible: true, start: [0, 0, 0], end: [2, 2, 2], rotation: [0, 0, 0], magnitude: 20 ,shape:'box',is_infinite: [false, false, false],radius:1,time: { type: 'const', frequency: 1, phase: 0 },innerRadius:0.5};
-  const particleTemplate = { id: 0, position: [0, 0, 0], radius: 1 ,velocity: [0, 0, 0], charge: 1, mass: 1,trailVisible:true};
+  const particleTemplate = { id: 0, position: [0, 0, 0], radius: 1 ,velocity: [0, 0, 0], charge: 1, mass: 1,trailVisible:true,gravityConstant:10,enableGravity:false};
   
   const [particles, setParticles] = useState([{...structuredClone(particleTemplate),id:1}]);
   const [electricFields, setElectricFields] = useState([{...structuredClone(fieldTemplate),id:1}]);
@@ -290,7 +290,6 @@ const handleRun = () => {
               onSync={syncParticleState}       // 传入状态逆向同步方法
               globalSpeed={speed}              // 传入全局速度
               trailInfo={trailInfo}            // 传入全局轨迹设置 
-
             />
           ))}
           <OrbitControls 
