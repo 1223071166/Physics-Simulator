@@ -5,12 +5,12 @@ import * as THREE from 'three';
 import { createFieldInstance } from '../util/FieldStrategies';
 
 // Boris 算法 + AABB 碰撞
-export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync,globalSpeed,trailInfo }) {
+export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync,globalSpeed,trailInfo}) {
   const meshRef = useRef();
 
   const posRef = useRef(new THREE.Vector3(...particle.position));
   const velRef = useRef(new THREE.Vector3(...particle.velocity));
-
+  
   useEffect(() => { 
     posRef.current.set(...particle.position); 
     if (meshRef.current) {
@@ -96,6 +96,7 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
     const frameStartTime = clock.elapsedTime - frameDt; // 本帧起始时刻
     const safeMass = particle.mass === 0 ? 0.0001 : particle.mass;
     const qm = particle.charge / safeMass;
+    ;
 
     // ==========================================
     // 🛡️ 动态子步长：根据当前速度和最小场尺寸，决定把 frameDt 拆成几步
@@ -105,10 +106,11 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
     const speed = velRef.current.length();
     const maxStepDist = SAFETY_RATIO * minFieldScale;
     const estimatedDist = speed * frameDt;
-    const N = Math.min(256, Math.max(1, Math.ceil(estimatedDist / maxStepDist)));
+    //const N = Math.min(256, Math.max(1, Math.ceil(estimatedDist / maxStepDist)));
+    const N = 10;
     const dt = frameDt / N;
     const dt2 = dt / 2.0;
-
+    
     for (let step = 0; step < N; step++) {
       // 子步对应的物理时刻（用于时变场采样，保证正弦/方波相位连续）
       const stepTime = frameStartTime + (step + 0.5) * dt;
@@ -125,9 +127,12 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
       // 准备电场加速度项: (q/m) * E * (dt/2)
       qmE.copy(netE).multiplyScalar(qm * dt2);
 
-      // 第一步：前半步电场加速 -> vMinus = v + qmE
-      vMinus.copy(velRef.current).add(qmE);
+      // 第一步：前半步加速 -> vMinus = v + qmE
 
+      vMinus.copy(velRef.current).add(qmE);
+      if (particle.enableGravity) {
+        vMinus.add(new THREE.Vector3(0,0,-particle.gravityConstant * dt2)); // 加入重力加速度
+      }
       // 第二步：磁场纯旋转 (Boris Push)
       tVec.copy(netB).multiplyScalar(qm * dt2);
       const tMagSq = tVec.lengthSq();
@@ -143,9 +148,11 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
       crossTemp2.crossVectors(vPrime, sVec);
       const vPlus = vMinus.clone().add(crossTemp2);
 
-      // 第三步：后半步电场加速 -> vNew = vPlus + qmE
+      // 第三步：后半步加速 -> vNew = vPlus + qmE
       velRef.current.copy(vPlus).add(qmE);
-
+      if (particle.enableGravity) {
+        velRef.current.add(new THREE.Vector3(0,0,-particle.gravityConstant * dt2)); 
+      }
       // 第四步：更新位置
       posRef.current.addScaledVector(velRef.current, dt);
     }
