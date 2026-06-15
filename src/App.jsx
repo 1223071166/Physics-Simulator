@@ -11,7 +11,7 @@ import FieldVisualizer from './components/canvas/FieldVisualizer';
 import ChargedParticle from './components/canvas/ChargedParticle';
 import AdaptiveAxes from './components/canvas/AdaptiveAxes';
 import CameraController from './components/util/CameraController';
-
+import {TimeProvider,useTime} from './components/util/Time';
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1); // 让Z轴朝上
 
 export default function App() {
@@ -245,22 +245,13 @@ export default function App() {
   };
 
 
-
-//时间函数，用于在运行时将时间归零
-  function ClockExporter({ clockRef }) {
-    const { clock } = useThree();
-    clockRef.current = clock;
-    return null;
-  }
-  const clockRef = useRef(null);
+const timeRef = useRef(null);
 
 const handleRun = () => {
-  // 归零：stop() 重置内部计时，start() 重新开始
-  if (clockRef.current) {
-    clockRef.current.stop();
-    clockRef.current.start();
-  }
+  if(!isRunning){
+    timeRef.current?.reset();
   setIsRunning(true);
+  }
 };
   //=============执行区===================
   return (
@@ -273,11 +264,10 @@ const handleRun = () => {
         <Canvas camera={{ position: [10, 10, 10], fov: 50,up: [0, 0, 1] }}>
           <ambientLight intensity={0.5} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
-          <ClockExporter clockRef={clockRef} />
           <AdaptiveAxes />
-
-          {electricFields.map(f => <FieldVisualizer key={f.id} field={f} type="E" renderTrigger={renderTrigger} globalSpeed={speed}/>)}
-          {magneticFields.map(f => <FieldVisualizer key={f.id} field={f} type="B" renderTrigger={renderTrigger} globalSpeed={speed} />)}
+          <TimeProvider globalSpeed={speed} ref={timeRef} >
+          {electricFields.map(f => <FieldVisualizer key={f.id} field={f} type="E" renderTrigger={renderTrigger}/>)}
+          {magneticFields.map(f => <FieldVisualizer key={f.id} field={f} type="B" renderTrigger={renderTrigger} />)}
           {particles.map(p => (
             <ChargedParticle 
               key={p.id} 
@@ -288,10 +278,10 @@ const handleRun = () => {
               resetTrigger={resetTrigger}      // 传入重置触发器
               renderTrigger={renderTrigger}    // 传入渲染触发器
               onSync={syncParticleState}       // 传入状态逆向同步方法
-              globalSpeed={speed}              // 传入全局速度
+              
               trailInfo={trailInfo}            // 传入全局轨迹设置 
             />
-          ))}
+          ))}</TimeProvider>
           <OrbitControls 
           ref={controlsRef} 
           makeDefault 

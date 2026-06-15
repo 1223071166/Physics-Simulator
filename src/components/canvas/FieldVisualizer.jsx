@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useMemo, use } from 'react';
 import { useFrame,useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createFieldInstance } from '../util/FieldStrategies';
+import {TimeProvider,useTime} from '../util/Time';
+
 // ============================================================================
 // 🧱 1. 形状策略库 (Shape Strategies)
 // 未来如果要拓展球形场、环形场，直接在这里像拼积木一样添加新的 key 即可！
@@ -257,7 +259,8 @@ const SHAPE_STRATEGIES = {
   }
 };
 
-function FieldArrow({ position, field, type, color ,globalSpeed}) {
+
+function FieldArrow({ position, field, type, color}) {
   const fieldInstance = useMemo(() => createFieldInstance(field), [field]);
 
   // ─── imperative refs，直接指向 Three.js 对象 ──────────────────────────────
@@ -275,12 +278,14 @@ function FieldArrow({ position, field, type, color ,globalSpeed}) {
 
   // ─── 上一帧缓存，只在值真正变化时才重建几何体 ─────────────────────────────
   const _prevTotalLength = useRef(-1);
-
-  useFrame(({ clock }) => {
+  const { accTime } = useTime();
+  useFrame(({ clock },delta) => {
+    
+    
     if (!fieldInstance || !groupRef.current) return;
 
     // 1. 从物理实例获取当前时刻的场向量（已包含正弦/方波调制和正负值）
-    fieldInstance.getVector(position, clock.elapsedTime, _vec.current,globalSpeed);
+    fieldInstance.getVector(position, accTime.current, _vec.current);
 
     const signedMag = _vec.current.length() * (
       // 保留符号：用场向量与方向向量的点积判断正负
@@ -363,12 +368,12 @@ function FieldArrow({ position, field, type, color ,globalSpeed}) {
   );
   
 }
-export default function FieldVisualizer({ field, type, renderTrigger ,globalSpeed}) {
-  // 🛡️ 防御：如果隐身或场强为0，直接不渲染任何东西
+export default function FieldVisualizer({ field, type, renderTrigger}) {
+   const color = type === 'E' ? '#4facfe' : '#ff4b4b';
+   const { camera } = useThree();
   if (!field.visible || field.magnitude === 0) return null;
 
-  const color = type === 'E' ? '#4facfe' : '#ff4b4b';
-  const { camera } = useThree();
+ 
   
   // 🎯 动态路由：根据数据里的 shape 匹配策略，如果没有匹配上（比如乱打的字）自动降级退回 box
   const strategy = SHAPE_STRATEGIES[field.shape] || SHAPE_STRATEGIES.box;
@@ -397,12 +402,14 @@ export default function FieldVisualizer({ field, type, renderTrigger ,globalSpee
     return sortedPoints.slice(0, MAX_RENDER_COUNT).map(item => item.pos);
   }, [field, camera, renderTrigger, strategy]);
 
+  
   return (
     <group>
       {/* 🧩 模块化渲染 1：画外框线框 */}
       {strategy.renderWireframe(field, color)}
 
       {/* 🧩 模块化渲染 2：循环批量画箭头 */}
+      
       {visibleArrowPositions.map((pos, idx) => (
         <FieldArrow 
           key={`${field.id}-arrow-${idx}`} 
@@ -410,9 +417,10 @@ export default function FieldVisualizer({ field, type, renderTrigger ,globalSpee
           field={field} 
           type={type} 
           color={color} 
-          globalSpeed={globalSpeed}
+          
         />
       ))}
+      
     </group>
   );
 }
