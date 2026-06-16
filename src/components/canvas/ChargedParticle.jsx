@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { createFieldInstance } from '../util/FieldStrategies';
 import {TimeProvider,useTime} from '../util/Time';
 // Boris 算法 + AABB 碰撞
-export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync,trailInfo}) {
+export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync,trailInfo,onRefReady}) {
   const meshRef = useRef();
 
   const posRef = useRef(new THREE.Vector3(...particle.position));
@@ -28,6 +28,11 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
     }
   }, [renderTrigger, particle.id, onSync]);
 
+  useEffect(() => {
+    onRefReady?.(particle.id, posRef.current);
+    return () => onRefReady?.(particle.id, null);
+  }, [particle.id, onRefReady]);
+  
   // 🌟 将纯数据对象转化为具有多态 getVector 方法的类实例
   // 仅在场数据发生变化时重新实例化，保护引擎性能
   const eFieldInstances = useMemo(() => 

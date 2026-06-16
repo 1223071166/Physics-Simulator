@@ -61,6 +61,13 @@ export default function App() {
       return p;
     }));
   }, []);
+  //维护ref表，用于摄像头的跟踪
+  const [followId, setFollowId] = useState(-1); // -1 表示不跟随
+  const particleRefsMap = useRef({}); // { [particleId]: THREE.Vector3 }
+  const handleParticleRefReady = React.useCallback((id, vecRef) => {
+    if (vecRef) particleRefsMap.current[id] = vecRef;
+    else delete particleRefsMap.current[id];
+}, []);
   // 三个添加实体的函数
   const addParticle = () => { setParticles([...particles,{...structuredClone(particleTemplate),id:Date.now()}]); setMenu({ ...menu, visible: false }); };
   const addEField = () => { setElectricFields([...electricFields, {...structuredClone(fieldTemplate),id:Date.now()}]); setMenu({ ...menu, visible: false }); };
@@ -278,8 +285,8 @@ const handleRun = () => {
               resetTrigger={resetTrigger}      // 传入重置触发器
               renderTrigger={renderTrigger}    // 传入渲染触发器
               onSync={syncParticleState}       // 传入状态逆向同步方法
-              
               trailInfo={trailInfo}            // 传入全局轨迹设置 
+              onRefReady={handleParticleRefReady}
             />
           ))}</TimeProvider>
           <OrbitControls 
@@ -287,8 +294,10 @@ const handleRun = () => {
           makeDefault 
           enableDamping 
           dampingFactor={0.05} 
-          panSpeed={2}/>
-          <CameraController controlsRef={controlsRef} /> 
+          panSpeed={2}
+          enablePan={followId === -1}
+          />
+          <CameraController controlsRef={controlsRef} followId={followId} particleRefsMap={particleRefsMap}/> 
           
         
         
@@ -341,7 +350,6 @@ const handleRun = () => {
         >
           ✨ Trail Settings {trailPanelOpen ? '▲' : '▼'}
         </button>
-
         {trailPanelOpen && (
           <div style={{ backgroundColor: '#1a1a2e', border: '1px solid #17a2b8', borderRadius: '6px', padding: '14px', marginBottom: '20px' }}>
             
@@ -406,6 +414,22 @@ const handleRun = () => {
 
           </div>
         )}
+        {/* 选择摄像机跟随的下拉框 */}
+        <div style={{ marginBottom: '20px' }}>
+        <label style={{ fontSize: '14px', color: '#aaa', display: 'block', marginBottom: '6px' }}>
+          Follow Particle (摄像头跟随)
+        </label>
+        <select
+          value={followId}
+          onChange={(e) => setFollowId(Number(e.target.value))}
+          style={{ width: '100%', padding: '8px', backgroundColor: '#1a1a2e', color: 'white', border: '1px solid #444', borderRadius: '4px' }}
+        >
+          <option value={-1}>无 (自由视角)</option>
+          {particles.map((p, i) => (
+            <option key={p.id} value={p.id}>粒子 {i + 1}</option>
+          ))}
+        </select>
+      </div>
         {/* ========== 全局速度控制 ========== */}
         <div style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
