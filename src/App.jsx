@@ -11,7 +11,7 @@ import FieldVisualizer from './components/canvas/FieldVisualizer';
 import ChargedParticle from './components/canvas/ChargedParticle';
 import AdaptiveAxes from './components/canvas/AdaptiveAxes';
 import CameraController from './components/util/CameraController';
-
+import {TimeProvider,useTime} from './components/util/Time';
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1); // 让Z轴朝上
 
 export default function App() {
@@ -61,6 +61,13 @@ export default function App() {
       return p;
     }));
   }, []);
+  //维护ref表，用于摄像头的跟踪
+  const [followId, setFollowId] = useState(-1); // -1 表示不跟随
+  const particleRefsMap = useRef({}); // { [particleId]: THREE.Vector3 }
+  const handleParticleRefReady = React.useCallback((id, vecRef) => {
+    if (vecRef) particleRefsMap.current[id] = vecRef;
+    else delete particleRefsMap.current[id];
+}, []);
   // 三个添加实体的函数
   const addParticle = () => { setParticles([...particles,{...structuredClone(particleTemplate),id:Date.now()}]); setMenu({ ...menu, visible: false }); };
   const addEField = () => { setElectricFields([...electricFields, {...structuredClone(fieldTemplate),id:Date.now()}]); setMenu({ ...menu, visible: false }); };
@@ -245,22 +252,13 @@ export default function App() {
   };
 
 
-
-//时间函数，用于在运行时将时间归零
-  function ClockExporter({ clockRef }) {
-    const { clock } = useThree();
-    clockRef.current = clock;
-    return null;
-  }
-  const clockRef = useRef(null);
+const timeRef = useRef(null);
 
 const handleRun = () => {
-  // 归零：stop() 重置内部计时，start() 重新开始
-  if (clockRef.current) {
-    clockRef.current.stop();
-    clockRef.current.start();
-  }
+  if(!isRunning){
+    timeRef.current?.reset();
   setIsRunning(true);
+  }
 };
   //=============执行区===================
   return (
@@ -273,11 +271,10 @@ const handleRun = () => {
         <Canvas camera={{ position: [10, 10, 10], fov: 50,up: [0, 0, 1] }}>
           <ambientLight intensity={0.5} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
-          <ClockExporter clockRef={clockRef} />
           <AdaptiveAxes />
-
-          {electricFields.map(f => <FieldVisualizer key={f.id} field={f} type="E" renderTrigger={renderTrigger} globalSpeed={speed}/>)}
-          {magneticFields.map(f => <FieldVisualizer key={f.id} field={f} type="B" renderTrigger={renderTrigger} globalSpeed={speed} />)}
+          <TimeProvider globalSpeed={speed} ref={timeRef} >
+          {electricFields.map(f => <FieldVisualizer key={f.id} field={f} type="E" renderTrigger={renderTrigger}/>)}
+          {magneticFields.map(f => <FieldVisualizer key={f.id} field={f} type="B" renderTrigger={renderTrigger} />)}
           {particles.map(p => (
             <ChargedParticle 
               key={p.id} 
@@ -288,17 +285,19 @@ const handleRun = () => {
               resetTrigger={resetTrigger}      // 传入重置触发器
               renderTrigger={renderTrigger}    // 传入渲染触发器
               onSync={syncParticleState}       // 传入状态逆向同步方法
-              globalSpeed={speed}              // 传入全局速度
               trailInfo={trailInfo}            // 传入全局轨迹设置 
+              onRefReady={handleParticleRefReady}
             />
-          ))}
+          ))}</TimeProvider>
           <OrbitControls 
           ref={controlsRef} 
           makeDefault 
           enableDamping 
           dampingFactor={0.05} 
-          panSpeed={2}/>
-          <CameraController controlsRef={controlsRef} /> 
+          panSpeed={2}
+          enablePan={followId === -1}
+          />
+          <CameraController controlsRef={controlsRef} followId={followId} particleRefsMap={particleRefsMap}/> 
           
         
         
@@ -351,7 +350,6 @@ const handleRun = () => {
         >
           ✨ Trail Settings {trailPanelOpen ? '▲' : '▼'}
         </button>
-
         {trailPanelOpen && (
           <div style={{ backgroundColor: '#1a1a2e', border: '1px solid #17a2b8', borderRadius: '6px', padding: '14px', marginBottom: '20px' }}>
             
@@ -416,6 +414,22 @@ const handleRun = () => {
 
           </div>
         )}
+        {/* 选择摄像机跟随的下拉框 */}
+        <div style={{ marginBottom: '20px' }}>
+        <label style={{ fontSize: '14px', color: '#aaa', display: 'block', marginBottom: '6px' }}>
+          Follow Particle (摄像头跟随)
+        </label>
+        <select
+          value={followId}
+          onChange={(e) => setFollowId(Number(e.target.value))}
+          style={{ width: '100%', padding: '8px', backgroundColor: '#1a1a2e', color: 'white', border: '1px solid #444', borderRadius: '4px' }}
+        >
+          <option value={-1}>无 (自由视角)</option>
+          {particles.map((p, i) => (
+            <option key={p.id} value={p.id}>粒子 {i + 1}</option>
+          ))}
+        </select>
+      </div>
         {/* ========== 全局速度控制 ========== */}
         <div style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>

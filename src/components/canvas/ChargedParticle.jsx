@@ -3,14 +3,14 @@ import { useFrame } from '@react-three/fiber';
 import { OrbitControls, Text,Trail } from '@react-three/drei';
 import * as THREE from 'three';
 import { createFieldInstance } from '../util/FieldStrategies';
-
+import {TimeProvider,useTime} from '../util/Time';
 // Boris 算法 + AABB 碰撞
-export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync,globalSpeed,trailInfo}) {
+export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync,trailInfo,onRefReady}) {
   const meshRef = useRef();
 
   const posRef = useRef(new THREE.Vector3(...particle.position));
   const velRef = useRef(new THREE.Vector3(...particle.velocity));
-  
+  const { accTime, deltaScaled } = useTime();
   useEffect(() => { 
     posRef.current.set(...particle.position); 
     if (meshRef.current) {
@@ -28,6 +28,11 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
     }
   }, [renderTrigger, particle.id, onSync]);
 
+  useEffect(() => {
+    onRefReady?.(particle.id, posRef.current);
+    return () => onRefReady?.(particle.id, null);
+  }, [particle.id, onRefReady]);
+  
   // 🌟 将纯数据对象转化为具有多态 getVector 方法的类实例
   // 仅在场数据发生变化时重新实例化，保护引擎性能
   const eFieldInstances = useMemo(() => 
@@ -80,20 +85,22 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
   const qmE = useMemo(() => new THREE.Vector3(), []);
 
   // 辅助函数：计算场强叠加
-  const accumulateFields = (fieldInstances, netVector, currentPos,time,globalSpeed) => {
+  const accumulateFields = (fieldInstances, netVector, currentPos,time) => {
     netVector.set(0, 0, 0); // 每帧清零
     for (let i = 0; i < fieldInstances.length; i++) {
       // 把临时向量丢进去让场去修改
-      fieldInstances[i].getVector(currentPos, time, tempFieldVec,globalSpeed);
+      fieldInstances[i].getVector(currentPos, time, tempFieldVec);
       netVector.add(tempFieldVec);
     }
   };
 
+ 
   useFrame(({clock}, delta) => {
+    
     if (!meshRef.current || !isRunning) return;
-
-    const frameDt = delta*globalSpeed;
-    const frameStartTime = clock.elapsedTime - frameDt; // 本帧起始时刻
+    
+    const frameDt = deltaScaled.current;                    
+    const frameStartTime = accTime.current - frameDt;
     const safeMass = particle.mass === 0 ? 0.0001 : particle.mass;
     const qm = particle.charge / safeMass;
     ;
@@ -117,8 +124,8 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
       const p = posRef.current;
 
       // 1. 在当前子步位置采样电场和磁场
-      accumulateFields(eFieldInstances, netE, p, stepTime,globalSpeed);
-      accumulateFields(bFieldInstances, netB, p, stepTime,globalSpeed);
+      accumulateFields(eFieldInstances, netE, p, stepTime);
+      accumulateFields(bFieldInstances, netB, p, stepTime);
 
       // ==========================================
       // 🌟 核心：Boris Integration Algorithm
