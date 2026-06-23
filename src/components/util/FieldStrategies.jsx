@@ -298,7 +298,5 @@ export class TorusField extends BaseField {
       case 'torus': return new TorusField(config);
       default:
         return new BoxField(config);
-        
-        
     }
   }

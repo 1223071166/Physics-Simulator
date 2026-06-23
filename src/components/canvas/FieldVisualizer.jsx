@@ -168,7 +168,7 @@ const SHAPE_STRATEGIES = {
       const quaternion  = new THREE.Quaternion().setFromUnitVectors(defaultAxis, targetAxis);
 
       return (
-        <group position={center} quaternion={quaternion}>
+        (innerRadius<outerRadius) &&(<group position={center} quaternion={quaternion}>
           {/* 外壁圆柱 */}
           <mesh>
             <cylinderGeometry args={[outerRadius, outerRadius, h, 32]} />
@@ -179,7 +179,7 @@ const SHAPE_STRATEGIES = {
             <cylinderGeometry args={[innerRadius, innerRadius, h, 32]} />
             <meshBasicMaterial color={color} wireframe transparent opacity={0.15} />
           </mesh>
-        </group>
+        </group>) 
       );
     },
 
