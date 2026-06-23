@@ -264,6 +264,18 @@ const handleRun = () => {
 };
   //=============执行区===================
   return (
+<div>
+    <style>{`
+        *, *::before, *::after {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+        html, body, #root {
+          height: 100%;
+          overflow: hidden;
+        }
+      `}</style>
     <div 
       onClick={() => {setMenu({ ...menu, visible: false });setMenu2({ ...menu2, visible: false })}} 
       style={
@@ -278,7 +290,7 @@ const handleRun = () => {
         }}>
       {/*左侧渲染区域 */}
       <div 
-        style={{ flex: 1, position: 'relative', outline: 'none' }} tabIndex={0} 
+        style={{ width: inspectorOpen ? '75vw' : '99vw', position: 'relative', outline: 'none' }} tabIndex={0} 
         onContextMenu={(e) => { e.preventDefault(); setMenu2({ visible: true, x: e.clientX, y: e.clientY }); }}
       >
         <Canvas camera={{ position: [10, 10, 10], fov: 50,up: [0, 0, 1] }}>
@@ -320,7 +332,7 @@ const handleRun = () => {
       <div
         onClick={() => setInspectorOpen(o => !o)}
         style={{
-          width: '28px',
+          width: '1vw',
           backgroundColor: '#2a2a2a',
           borderLeft: '1px solid #444',
           display: 'flex',
@@ -340,17 +352,21 @@ const handleRun = () => {
       {/*右侧组件区域主题 */}
       <div
         style={{
-          width: inspectorOpen ? '350px' : '0px',
+          width: inspectorOpen ? '24vw' : '0px',
           overflow: 'hidden',
           transition: 'width 0.3s ease',
           backgroundColor: '#222',
           borderLeft: '1px solid #444',
-          flexShrink: 0,
+          
         }}
         onKeyDown={(e) => e.stopPropagation()}
         onContextMenu={(e) => { e.preventDefault(); setMenu({ visible: true, x: e.clientX, y: e.clientY }); }}
       >
-        <div style={{ width: '350px', padding: '20px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
+        <div style={{ width: '24vw', 
+          padding: '10px', 
+          overflowY: 'auto', 
+          height: '100%', 
+          boxSizing: 'border-box', }}>
 
         <h2 style={{ marginTop: 0, borderBottom: '1px solid #555', paddingBottom: '10px' }}>Physics Inspector</h2>
          {/*三维引擎中控台按钮组 */}
@@ -542,7 +558,7 @@ const handleRun = () => {
       <ContextMenu visible={menu.visible} x={menu.x} y={menu.y} options={rightMenuOptions} />
       <ContextMenu visible={menu2.visible} x={menu2.x} y={menu2.y} options={leftMenuOptions} />
     </div>
-    
+</div>
   );
 }
 /* =====================================================================
