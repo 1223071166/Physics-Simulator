@@ -114,7 +114,7 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
   // 3. 专属的方向向量 UI 积木 (带确认按钮)
   const renderDirectionRow = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-      <span style={{ width: '45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>Dir(方向)</span>
+      <span style={{ width:'45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>Dir(方向)</span>
       {['X', 'Y', 'Z'].map((axis, i) => (
         <input
           key={`dir-${axis}`}
@@ -130,7 +130,7 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
         onClick={applyDirection}
         title="Apply Direction"
         style={{ 
-          padding: '4px 10px', backgroundColor: '#27ae60', color: 'white', 
+          padding: '4px 10px', backgroundColor: '#27ae60', color: 'white',
           border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' 
         }}
       >
@@ -145,7 +145,7 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
     const vec = field[propName] || [0, 0, 0]; 
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-        <span style={{ width: '45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>{label}</span>
+        <span style={{ flex:1, color: '#888', fontSize: '12px', fontWeight: 'bold' }}>{label}</span>
         {['X', 'Y', 'Z'].map((axis, i) => (
           <SmartInput key={axis} value={vec[i]} onCommit={(val) => onUpdate(field.id, propName, i, val)} />
         ))}
@@ -158,7 +158,7 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
     const val = field[propName] !== undefined ? field[propName] : (minVal || 1);
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-        <span style={{ width: '45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>{label}</span>
+        <span style={{ flex:1, color: '#888', fontSize: '12px', fontWeight: 'bold' }}>{label}</span>
         <SmartInput 
           value={val} 
           onCommit={(newVal) => onUpdate(field.id, propName, null, Math.max(minVal, newVal))} 
@@ -248,10 +248,8 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
     <>
       {renderVec3('Start', 'start')}
       {renderVec3('End', 'end')}
-      {renderVec3('Rot(°)', 'rotation')}
-      {renderDirectionRow()}
-      {renderScalar('Radius', 'radius', 0.1)}
-      {renderScalar('InnerRadius', 'innerRadius', 0)}
+      {renderScalar('OuterRadius(外径)', 'radius', 0.1)}
+      {renderScalar('InnerRadius(内径)', 'innerRadius', 0)}
       {renderCheckboxes('Infinite', ['Axial(轴向)'])}
       {currentTimeType !== 'const' && renderTimeParams()}
     </>
