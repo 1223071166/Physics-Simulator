@@ -47,6 +47,8 @@ export default function App() {
     length: 600,      // Trail 的 length（帧数）
   });
   const [trailPanelOpen, setTrailPanelOpen] = useState(false);
+  //设置右侧面版的折叠状态
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   //“逆向同步”函数,负责把 3D 空间里的真实坐标/速度，提取并覆盖到 UI 面板上
   const syncParticleState = React.useCallback((id, realPos, realVel) => {
     setParticles(prev => prev.map(p => {
@@ -262,7 +264,18 @@ const handleRun = () => {
 };
   //=============执行区===================
   return (
-    <div onClick={() => {setMenu({ ...menu, visible: false });setMenu2({ ...menu2, visible: false })}} style={{ display: 'flex', width: '100vw', height: '100vh', margin: 0, backgroundColor: '#111', color: 'white', fontFamily: 'sans-serif' }}>
+    <div 
+      onClick={() => {setMenu({ ...menu, visible: false });setMenu2({ ...menu2, visible: false })}} 
+      style={
+        { display: 'flex', 
+        width: '100vw', 
+        height: '100vh', 
+        margin: 0, 
+        backgroundColor: '#111', 
+        color: 'white', 
+        fontFamily: 'sans-serif',
+        
+        }}>
       {/*左侧渲染区域 */}
       <div 
         style={{ flex: 1, position: 'relative', outline: 'none' }} tabIndex={0} 
@@ -299,16 +312,46 @@ const handleRun = () => {
           />
           <CameraController controlsRef={controlsRef} followId={followId} particleRefsMap={particleRefsMap}/> 
           
-        
-        
       </Canvas>
       </div>
-
-      {/*右侧组件区域 */}
-      <div 
-        style={{ width: '350px', backgroundColor: '#222', borderLeft: '1px solid #444', padding: '20px', overflowY: 'auto' }} onKeyDown={(e) => e.stopPropagation()}
+      {/* 右侧组件区域 */}
+      <div style={{ display: 'flex', flexShrink: 0 }}>
+      {/* 折叠切换按钮 */}
+      <div
+        onClick={() => setInspectorOpen(o => !o)}
+        style={{
+          width: '28px',
+          backgroundColor: '#2a2a2a',
+          borderLeft: '1px solid #444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: '#aaa',
+          fontSize: '18px',
+          userSelect: 'none',
+          transition: 'background 0.2s',
+          flexShrink: 0,
+        }}
+        title={inspectorOpen ? '折叠面板' : '展开面板'}
+      >
+        {inspectorOpen ? '›' : '‹'}
+      </div>
+      {/*右侧组件区域主题 */}
+      <div
+        style={{
+          width: inspectorOpen ? '350px' : '0px',
+          overflow: 'hidden',
+          transition: 'width 0.3s ease',
+          backgroundColor: '#222',
+          borderLeft: '1px solid #444',
+          flexShrink: 0,
+        }}
+        onKeyDown={(e) => e.stopPropagation()}
         onContextMenu={(e) => { e.preventDefault(); setMenu({ visible: true, x: e.clientX, y: e.clientY }); }}
       >
+        <div style={{ width: '350px', padding: '20px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
+
         <h2 style={{ marginTop: 0, borderBottom: '1px solid #555', paddingBottom: '10px' }}>Physics Inspector</h2>
          {/*三维引擎中控台按钮组 */}
          <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
@@ -493,12 +536,13 @@ const handleRun = () => {
             {magneticFields.map((f, i) => <FieldCard key={f.id} title={`B-Field ${i + 1}`} field={f} type="B" onUpdate={(id, prop, idx, val) => updateEntity(setMagneticFields, id, prop, idx, val)} onDelete={removeBField} />)}
           </>
         )}
-      
+        </div>
       </div>
-
+      </div>
       <ContextMenu visible={menu.visible} x={menu.x} y={menu.y} options={rightMenuOptions} />
       <ContextMenu visible={menu2.visible} x={menu2.x} y={menu2.y} options={leftMenuOptions} />
     </div>
+    
   );
 }
 /* =====================================================================

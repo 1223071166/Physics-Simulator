@@ -255,7 +255,7 @@ export class TorusField extends BaseField {
     const radialLenSq = this._radialVec.lengthSq();
 
     // ── 4. 环形径向判定：innerRadius < r < outerRadius ──────────────────────
-    if (radialLenSq <= this.innerRadiusSq || radialLenSq >= this.outerRadiusSq) {
+    if (radialLenSq < this.innerRadiusSq || radialLenSq > this.outerRadiusSq) {
       targetVector.set(0, 0, 0);
       return;
     }
@@ -269,6 +269,21 @@ export class TorusField extends BaseField {
     // ── 6. 应用时变因子，写入目标向量 ──────────────────────────────────────
     const currentMagnitude = this.magnitude * this.getTimeFactor(time);
     targetVector.copy(this._tangentVec).multiplyScalar(currentMagnitude);
+    if (
+      !Number.isFinite(targetVector.x) ||
+      !Number.isFinite(targetVector.y) ||
+      !Number.isFinite(targetVector.z)
+    ) {
+      console.error("BAD VECTOR", {
+          position,
+          axisUnit: this.axisUnit,
+          radialVec: this._radialVec,
+          tangentVec: this._tangentVec,
+          currentMagnitude
+      });
+
+      targetVector.set(0,0,0);
+  }
   }
 }
 

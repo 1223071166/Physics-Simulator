@@ -1,0 +1,92 @@
+{
+  "particles": [
+    {
+      "id": 1781608842640,
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "radius": 1,
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "charge": 1,
+      "mass": 1,
+      "trailVisible": true,
+      "gravityConstant": 10,
+      "enableGravity": false
+    }
+  ],
+  "electricFields": [
+    {
+      "id": 1,
+      "visible": true,
+      "start": [
+        -0.1,
+        -100,
+        -2
+      ],
+      "end": [
+        0.1,
+        100,
+        2
+      ],
+      "rotation": [
+        0,
+        0,
+        -90
+      ],
+      "magnitude": 2000,
+      "shape": "box",
+      "is_infinite": [
+        false,
+        true,
+        false
+      ],
+      "radius": 1,
+      "time": {
+        "type": "square",
+        "frequency": 0.5,
+        "phase": 0
+      },
+      "innerRadius": 0.5
+    }
+  ],
+  "magneticFields": [
+    {
+      "id": 2,
+      "visible": true,
+      "start": [
+        0,
+        0,
+        -4
+      ],
+      "end": [
+        0,
+        0,
+        4
+      ],
+      "rotation": [
+        90,
+        0,
+        0
+      ],
+      "magnitude": 3.1415926,
+      "shape": "cylinder",
+      "is_infinite": [
+        false,
+        true
+      ],
+      "radius": 100,
+      "time": {
+        "type": "const",
+        "frequency": 1,
+        "phase": 0
+      },
+      "innerRadius": 0.5
+    }
+  ]
+}
