@@ -1,16 +1,4 @@
-# React + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+用Three.js和React做出来的一个纯端带电粒子在电磁场中运动的模拟游戏，可以用来教学演示或个人探索，自认为效果还不错。  
+本人可以说是编程新手借助AI辅助加个人想法才开发出了这个项目，肯定会有很多bug，如果有人指出我会不胜感激。  
+市面上algodoo和NB物理实验室做得非常不错，本项目算是弥补了NB物理实验室没有3d模块的遗憾。  
+暂不支持手机端，后续可能会修改
