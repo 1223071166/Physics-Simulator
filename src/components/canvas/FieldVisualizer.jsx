@@ -371,10 +371,7 @@ function FieldArrow({ position, field, type, color}) {
 export default function FieldVisualizer({ field, type, renderTrigger}) {
    const color = type === 'E' ? '#4facfe' : '#ff4b4b';
    const { camera } = useThree();
-  if (!field.visible || field.magnitude === 0) return null;
 
- 
-  
   // 🎯 动态路由：根据数据里的 shape 匹配策略，如果没有匹配上（比如乱打的字）自动降级退回 box
   const strategy = SHAPE_STRATEGIES[field.shape] || SHAPE_STRATEGIES.box;
 
@@ -402,7 +399,7 @@ export default function FieldVisualizer({ field, type, renderTrigger}) {
     return sortedPoints.slice(0, MAX_RENDER_COUNT).map(item => item.pos);
   }, [field, camera, renderTrigger, strategy]);
 
-  
+  if (!field.visible || field.magnitude === 0) return null; //必须在一堆use的hook之后才能返回
   return (
     <group>
       {/* 🧩 模块化渲染 1：画外框线框 */}
