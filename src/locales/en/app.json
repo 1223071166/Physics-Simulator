@@ -1,0 +1,15 @@
+{
+  "contextMenu": {
+    "addParticle": "+ Particle",
+    "addEField": "+ E-Field",
+    "addBField": "+ B-Field",
+    "refreshView": "Refresh View"
+  },
+  "panel": {
+    "collapse": "Collapse Panel",
+    "expand": "Expand Panel"
+  },
+  "errors": {
+    "loadCorrupted": "Save file is corrupted or invalid!"
+  }
+}

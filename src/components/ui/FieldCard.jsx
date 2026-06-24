@@ -1,7 +1,9 @@
 import {React,useState,useEffect} from 'react';
+import { useTranslation } from 'react-i18next'; // 【新增】
 import SmartInput from './SmartInput';
 import * as THREE from 'three';
 export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
+  const { t } = useTranslation(['fieldCard', 'common']); // 【新增】
   const headerColor = type === 'E' ? '#4facfe' : '#ff4b4b';
   const currentShape = field.shape || 'box';
   const currentTimeType = field.time?.type || 'const';
@@ -114,7 +116,8 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
   // 3. 专属的方向向量 UI 积木 (带确认按钮)
   const renderDirectionRow = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-      <span style={{ width:'45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>Dir(方向)</span>
+      {/* 【注意】原来是 "Dir(方向)" 中英混写，拆成独立key */}
+      <span style={{ width:'45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>{t('labels.direction')}</span>
       {['X', 'Y', 'Z'].map((axis, i) => (
         <input
           key={`dir-${axis}`}
@@ -128,7 +131,7 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
       ))}
       <button 
         onClick={applyDirection}
-        title="Apply Direction"
+        title={t('actions.applyDirection')}
         style={{ 
           padding: '4px 10px', backgroundColor: '#27ae60', color: 'white',
           border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' 
@@ -202,12 +205,12 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
     return (
       <div style={{ borderTop: '1px dashed #444', paddingTop: '8px', marginBottom: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-          <span style={{ width: '45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>Freq(Hz)</span>
+          <span style={{ width: '45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>{t('labels.freq')}</span>
           <SmartInput
             value={freq}
             onCommit={(val) => onUpdate(field.id, 'time', null, { ...field.time, frequency: Math.max(0, val) })}
           />
-          <span style={{ width: '45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>Phase(°)</span>
+          <span style={{ width: '45px', color: '#888', fontSize: '12px', fontWeight: 'bold' }}>{t('labels.phase')}</span>
           <SmartInput
             value={phase}
             onCommit={(val) => onUpdate(field.id, 'time', null, { ...field.time, phase: val })}
@@ -220,37 +223,40 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
 
   // ==========================================
   // 📐 策略模式：根据不同形状分发渲染视图
+  // 【注意】这里是本次改造的重点：所有调用处原来传的都是硬编码字符串，
+  // 现在统一换成 t() 调用。注意 'Start'/'End'/'Rot(°)'/'Infinite' 在box/cylinder
+  // 之间是完全重复使用的同一份文案，对应到json里只存了一份，没有重复定义。
   // ==========================================
   
   const renderBoxSettings = () => (
     <>
-      {renderVec3('Start', 'start')}
-      {renderVec3('End', 'end')}
-      {renderVec3('Rot(°)', 'rotation')}
+      {renderVec3(t('labels.start'), 'start')}
+      {renderVec3(t('labels.end'), 'end')}
+      {renderVec3(t('labels.rotation'), 'rotation')}
       {renderDirectionRow()}
-      {renderCheckboxes('Infinite', ['X-Axis', 'Y-Axis', 'Z-Axis'])}
+      {renderCheckboxes(t('labels.infinite'), [t('axis.xAxis'), t('axis.yAxis'), t('axis.zAxis')])}
       {currentTimeType !== 'const' && renderTimeParams()}
     </>
   );
 
   const renderCylinderSettings = () => (
     <>
-      {renderVec3('Start', 'start')}
-      {renderVec3('End', 'end')}
-      {renderVec3('Rot(°)', 'rotation')}
+      {renderVec3(t('labels.start'), 'start')}
+      {renderVec3(t('labels.end'), 'end')}
+      {renderVec3(t('labels.rotation'), 'rotation')}
       {renderDirectionRow()}
-      {renderScalar('Radius', 'radius', 0.1)}
-      {renderCheckboxes('Infinite', ['Axial(轴向)', 'Radial(径向)'])}
+      {renderScalar(t('labels.radius'), 'radius', 0.1)}
+      {renderCheckboxes(t('labels.infinite'), [t('axis.axial'), t('axis.radial')])}
       {currentTimeType !== 'const' && renderTimeParams()}
     </>
   );
   const renderTorusSettings = () => (
     <>
-      {renderVec3('Start', 'start')}
-      {renderVec3('End', 'end')}
-      {renderScalar('OuterRadius(外径)', 'radius', 0.1)}
-      {renderScalar('InnerRadius(内径)', 'innerRadius', 0)}
-      {renderCheckboxes('Infinite', ['Axial(轴向)'])}
+      {renderVec3(t('labels.start'), 'start')}
+      {renderVec3(t('labels.end'), 'end')}
+      {renderScalar(t('labels.outerRadius'), 'radius', 0.1)}
+      {renderScalar(t('labels.innerRadius'), 'innerRadius', 0)}
+      {renderCheckboxes(t('labels.infinite'), [t('axis.axial')])}
       {currentTimeType !== 'const' && renderTimeParams()}
     </>
   );
@@ -259,9 +265,11 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
       
       {/* 头部控制栏：标题、形状选择、显示切换、删除 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        {/* 【注意】title 这个prop是从父组件Inspector传进来的，已经在上一轮改造里
+            通过 t('fields.eField', {index}) 处理过了，这里直接渲染即可 */}
         <strong style={{ color: headerColor }}>{title}</strong>
         
-        {/* 切换场的形状 */}
+        {/* 切换场的形状。【注意】原来是纯中文 矩形/圆柱/圆环，完全没有英文版本 */}
         <select 
           value={currentShape} 
           onChange={handleShapeChange}
@@ -270,12 +278,12 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
             borderRadius: '4px', padding: '3px 8px', fontSize: '12px', outline: 'none', cursor: 'pointer'
           }}
         >
-          <option value="box">矩形</option>
-          <option value="cylinder">圆柱</option>
-          <option value="torus">圆环</option>
+          <option value="box">{t('shapeSelect.box')}</option>
+          <option value="cylinder">{t('shapeSelect.cylinder')}</option>
+          <option value="torus">{t('shapeSelect.torus')}</option>
         </select>
 
-        {/* 切换场强随时间的变化类型 */}
+        {/* 切换场强随时间的变化类型。同样原来是纯中文 匀强/正弦式/方波式 */}
         <select
           value={currentTimeType}
           onChange={handleTimeTypeChange}
@@ -285,21 +293,21 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
             borderRadius: '4px', padding: '3px 8px', fontSize: '12px', outline: 'none', cursor: 'pointer'
           }}
         >
-          <option value="const">匀强</option>
-          <option value="sine">正弦式</option>
-          <option value="square">方波式</option>
+          <option value="const">{t('timeTypeSelect.const')}</option>
+          <option value="sine">{t('timeTypeSelect.sine')}</option>
+          <option value="square">{t('timeTypeSelect.square')}</option>
         </select>
         
-        {/* 显示切换和删除按钮 */}
+        {/* 显示切换和删除按钮。Show/Del 复用 common 命名空间，跟 ParticleCard 共享同一份翻译 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <label style={{ fontSize: '12px', color: '#aaa', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <input type="checkbox" checked={field.visible ?? true} onChange={(e) => onUpdate(field.id, 'visible', null, e.target.checked)} /> Show
+            <input type="checkbox" checked={field.visible ?? true} onChange={(e) => onUpdate(field.id, 'visible', null, e.target.checked)} /> {t('common:actions.show')}
           </label>
-          <button onClick={() => onDelete(field.id)} style={{ backgroundColor: '#ff4b4b', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer', padding: '4px 8px' }}>Del</button>
+          <button onClick={() => onDelete(field.id)} style={{ backgroundColor: '#ff4b4b', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer', padding: '4px 8px' }}>{t('common:actions.delete')}</button>
         </div>
       </div>
       
-      {/* 坐标轴提示表头 */}
+      {/* 坐标轴提示表头（X/Y/Z字母不翻译，理由同ParticleCard） */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
         <span style={{ width: '45px' }}></span>
         <div style={{ flex: 1, textAlign: 'center', color: '#555', fontSize: '12px', fontWeight: 'bold' }}>X</div>
@@ -313,7 +321,7 @@ export default function FieldCard({ title, field, type, onUpdate, onDelete }) {
       {currentShape === 'torus' && renderTorusSettings()}
       {/* 统一渲染场强 (Magnitude) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #444' }}>
-        <span style={{ width: '70px', color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>Magnitude</span>
+        <span style={{ width: '70px', color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{t('labels.magnitude')}</span>
         <SmartInput value={field.magnitude !== undefined ? field.magnitude : 20} onCommit={(val) => onUpdate(field.id, 'magnitude', null, val)} />
       </div>
     </div>

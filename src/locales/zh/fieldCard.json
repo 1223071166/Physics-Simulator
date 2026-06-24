@@ -1,0 +1,35 @@
+{
+  "shapeSelect": {
+    "box": "矩形",
+    "cylinder": "圆柱",
+    "torus": "圆环"
+  },
+  "timeTypeSelect": {
+    "const": "匀强",
+    "sine": "正弦式",
+    "square": "方波式"
+  },
+  "labels": {
+    "start": "起点",
+    "end": "终点",
+    "rotation": "旋转(°)",
+    "direction": "方向",
+    "radius": "半径",
+    "outerRadius": "外径",
+    "innerRadius": "内径",
+    "magnitude": "场强大小",
+    "freq": "频率(Hz)",
+    "phase": "相位(°)",
+    "infinite": "无限延伸"
+  },
+  "axis": {
+    "xAxis": "X轴",
+    "yAxis": "Y轴",
+    "zAxis": "Z轴",
+    "axial": "轴向",
+    "radial": "径向"
+  },
+  "actions": {
+    "applyDirection": "应用方向"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "title": "Physics Inspector",
+  "controls": {
+    "run": "Run",
+    "stop": "Stop",
+    "reset": "Reset"
+  },
+  "scene": {
+    "save": "Save Scene",
+    "load": "Load Scene"
+  },
+  "camera": {
+    "resetCamera": "Reset Camera"
+  },
+  "trail": {
+    "settingsTitle": "Trail Settings",
+    "color": "Trail Color",
+    "autoFollow": "Auto (follow particle)",
+    "widthMultiplier": "Width multiplier",
+    "thin": "thin",
+    "thick": "thick",
+    "length": "Length (frames)",
+    "short": "short",
+    "long": "long"
+  },
+  "follow": {
+    "label": "Follow Particle",
+    "none": "None (free view)",
+    "particle": "Particle {{index}}"
+  },
+  "speed": {
+    "label": "Simulation Speed",
+    "paused": "0 (paused)",
+    "full": "1x (full)"
+  },
+  "particles": {
+    "sectionTitle": "Particles ({{count}})"
+  },
+  "fields": {
+    "sectionTitle": "Fields ({{count}})",
+    "eField": "E-Field {{index}}",
+    "bField": "B-Field {{index}}"
+  }
+}

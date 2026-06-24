@@ -1,0 +1,44 @@
+{
+  "title": "物理检查面板",
+  "controls": {
+    "run": "运行",
+    "stop": "暂停",
+    "reset": "重置"
+  },
+  "scene": {
+    "save": "保存场景",
+    "load": "加载场景"
+  },
+  "camera": {
+    "resetCamera": "重置摄像机"
+  },
+  "trail": {
+    "settingsTitle": "轨迹设置",
+    "color": "轨迹颜色",
+    "autoFollow": "自动（跟随粒子颜色）",
+    "widthMultiplier": "线宽倍数",
+    "thin": "细",
+    "thick": "粗",
+    "length": "轨迹持续帧数",
+    "short": "短",
+    "long": "长"
+  },
+  "follow": {
+    "label": "摄像头跟随",
+    "none": "无（自由视角）",
+    "particle": "粒子 {{index}}"
+  },
+  "speed": {
+    "label": "模拟速度",
+    "paused": "0（暂停）",
+    "full": "1x（全速）"
+  },
+  "particles": {
+    "sectionTitle": "粒子（{{count}}）"
+  },
+  "fields": {
+    "sectionTitle": "场（{{count}}）",
+    "eField": "电场 {{index}}",
+    "bField": "磁场 {{index}}"
+  }
+}

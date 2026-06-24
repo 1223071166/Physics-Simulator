@@ -1,0 +1,15 @@
+{
+  "contextMenu": {
+    "addParticle": "+ 粒子",
+    "addEField": "+ 电场",
+    "addBField": "+ 磁场",
+    "refreshView": "刷新视图"
+  },
+  "panel": {
+    "collapse": "折叠面板",
+    "expand": "展开面板"
+  },
+  "errors": {
+    "loadCorrupted": "存档文件已损坏或格式非法！"
+  }
+}

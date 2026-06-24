@@ -1,0 +1,35 @@
+{
+  "shapeSelect": {
+    "box": "Box",
+    "cylinder": "Cylinder",
+    "torus": "Torus"
+  },
+  "timeTypeSelect": {
+    "const": "Constant",
+    "sine": "Sine",
+    "square": "Square Wave"
+  },
+  "labels": {
+    "start": "Start",
+    "end": "End",
+    "rotation": "Rot(°)",
+    "direction": "Dir",
+    "radius": "Radius",
+    "outerRadius": "OuterRadius",
+    "innerRadius": "InnerRadius",
+    "magnitude": "Magnitude",
+    "freq": "Freq(Hz)",
+    "phase": "Phase(°)",
+    "infinite": "Infinite"
+  },
+  "axis": {
+    "xAxis": "X-Axis",
+    "yAxis": "Y-Axis",
+    "zAxis": "Z-Axis",
+    "axial": "Axial",
+    "radial": "Radial"
+  },
+  "actions": {
+    "applyDirection": "Apply Direction"
+  }
+}

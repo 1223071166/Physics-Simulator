@@ -1,0 +1,7 @@
+{
+  "title": "粒子 {{index}}",
+  "trail": "轨迹",
+  "gravity": "重力",
+  "pos": "位置",
+  "vel": "速度"
+}

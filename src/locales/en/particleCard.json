@@ -1,0 +1,7 @@
+{
+  "title": "Particle {{index}}",
+  "trail": "Trail",
+  "gravity": "Gravity",
+  "pos": "Pos",
+  "vel": "Vel"
+}

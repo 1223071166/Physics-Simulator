@@ -1,4 +1,6 @@
+import './i18n'
 import React, { useState, useRef,createContext, useContext, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next'; // 【新增】
 import { Canvas, useFrame,useThree } from '@react-three/fiber';
 import { OrbitControls, Text,Trail } from '@react-three/drei';
 import * as THREE from 'three';
@@ -17,6 +19,8 @@ import {Inspector,InspectorProvider} from './components/ui/Inspector'
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1); // 让Z轴朝上
 export default function App() {
+// 【新增】App.jsx自己的翻译命名空间，专门管右键菜单、面板折叠提示、报错弹窗这些散落在顶层组件里的文字
+const { t } = useTranslation('app');
 // ════════════════════════════════════════════
 // 1. 模板 / 默认值
 // ════════════════════════════════════════════
@@ -136,13 +140,14 @@ const removeBField = (id) => setMagneticFields(magneticFields.filter(f => f.id !
 // ════════════════════════════════════════════
 // 11. 菜单选项（依赖上面的增删函数，必须放在其后）
 // ════════════════════════════════════════════
+// 【注意】原来是 '+ Particle (粒子)' 这种中英混写的伪双语，已拆成独立翻译key
 const rightMenuOptions = [
-  { label: '+ Particle (粒子)', onClick: addParticle },
-  { label: '+ E-Field (电场)', onClick: addEField },
-  { label: '+ B-Field (磁场)', onClick: addBField },
+  { label: t('contextMenu.addParticle'), onClick: addParticle },
+  { label: t('contextMenu.addEField'), onClick: addEField },
+  { label: t('contextMenu.addBField'), onClick: addBField },
 ];
 const leftMenuOptions = [
-  { label: 'Refresh View (刷新视图)', onClick: () => { setRenderTrigger(prev => prev + 1); setMenu2({ ...menu2, visible: false }); } }
+  { label: t('contextMenu.refreshView'), onClick: () => { setRenderTrigger(prev => prev + 1); setMenu2({ ...menu2, visible: false }); } }
 ];
 
 // ════════════════════════════════════════════
@@ -261,8 +266,8 @@ const handleLoad = (event) => {
       setResetTrigger(prev => prev + 1);
 
     } catch (error) {
-      alert("存档文件已损坏或格式非法！");
-      console.error("加载失败:", error);
+      alert(t('errors.loadCorrupted'));
+      console.error("加载失败:", error); // 仅开发者可见的console日志，不需要走i18n
     }
   };
   reader.readAsText(file);
@@ -388,7 +393,7 @@ const inspectorValue = {
           transition: 'background 0.2s',
           flexShrink: 0,
         }}
-        title={inspectorOpen ? '折叠面板' : '展开面板'}
+        title={inspectorOpen ? t('panel.collapse') : t('panel.expand')}
       >
         {inspectorOpen ? '›' : '‹'}
       </div>
