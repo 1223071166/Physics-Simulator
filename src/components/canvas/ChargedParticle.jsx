@@ -22,11 +22,12 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
     velRef.current.set(...particle.velocity); 
   }, [particle.velocity, resetTrigger]);
 
-  useEffect(() => {
-    if (renderTrigger > 0) {
-      onSync(particle.id, posRef.current.toArray(), velRef.current.toArray());
-    }
-  }, [renderTrigger, particle.id, onSync]);
+  // useEffect(() => {
+  //   if (renderTrigger > 0) {
+  //     onSync(particle.id, posRef.current.toArray(), velRef.current.toArray());
+  //   }
+  // }, [renderTrigger, particle.id, onSync]);
+  //禁止回调
 
   useEffect(() => {
     onRefReady?.(particle.id, posRef.current);
