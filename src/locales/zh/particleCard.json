@@ -3,5 +3,9 @@
   "trail": "轨迹",
   "gravity": "重力",
   "pos": "位置",
-  "vel": "速度"
+  "vel": "速度",
+  "monitor": "监控",
+  "monitorPos": "监控位置",
+  "monitorVel": "监控速度",
+  "monitorSpeed": "监控速率"
 }

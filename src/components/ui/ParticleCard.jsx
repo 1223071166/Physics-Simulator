@@ -1,6 +1,7 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next'; // 【新增】
+import { useTranslation } from 'react-i18next'; 
 import SmartInput from './SmartInput';
+import ParticleMonitor from './ParticleMonitor'; // 【新增】实时检测悬浮卡片
 // 粒子卡片
 export default function ParticleCard({ particle, index, onUpdate, onDelete}) {
   // 【新增】同时引入本组件的命名空间 particleCard，以及跨组件共享的 common
@@ -17,6 +18,7 @@ export default function ParticleCard({ particle, index, onUpdate, onDelete}) {
   );
 
   return (
+    <>
     <div style={{ backgroundColor: '#333', padding: '12px', borderRadius: '6px', marginBottom: '15px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
         {/* 【注意】原来是 `Particle ${index + 1}`，index是动态数字，用 {{index}} 插值 */}
@@ -39,6 +41,16 @@ export default function ParticleCard({ particle, index, onUpdate, onDelete}) {
             style={{ cursor: 'pointer', accentColor: 'cyan' }}
           />
           {t('gravity')}
+        </label>
+        {/* 【新增】实时检测：勾选后弹出可拖动悬浮卡片，实时显示该粒子的位置与速度 */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#ccc', cursor: 'pointer' ,color:'white'}}>
+          <input
+            type="checkbox"
+            checked={particle.monitorVisible ?? false}
+            onChange={(e) => onUpdate(particle.id, 'monitorVisible', null, e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'cyan' }}
+          />
+          {t('monitor')}
         </label>
         {/* 【注意】Del 这个词在 FieldCard 里也出现过，复用 common 命名空间，
             而不是在两个文件里各存一份相同的翻译 */}
@@ -74,5 +86,15 @@ export default function ParticleCard({ particle, index, onUpdate, onDelete}) {
         <SmartInput value={particle.mass} onCommit={(val) => onUpdate(particle.id, 'mass', null, Math.max(0.1, val))} />
       </div>
     </div>
+    {/* 【新增】实时检测悬浮卡片：勾选后渡到 document.body 上，自由拖动 */}
+    {particle.monitorVisible && (
+      <ParticleMonitor
+        particleId={particle.id}
+        label={t('title', { index: index + 1 })}
+        color={particle.charge > 0 ? '#ff4444' : (particle.charge < 0 ? '#4444ff' : 'cyan')}
+        onClose={() => onUpdate(particle.id, 'monitorVisible', null, false)}
+      />
+    )}
+    </>
   );
 }

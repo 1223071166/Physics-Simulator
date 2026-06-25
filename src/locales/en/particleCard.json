@@ -3,5 +3,9 @@
   "trail": "Trail",
   "gravity": "Gravity",
   "pos": "Pos",
-  "vel": "Vel"
+  "vel": "Vel",
+  "monitor": "Monitor",
+  "monitorPos": "Monitor Pos",
+  "monitorVel": "Monitor Vel",
+  "monitorSpeed": "Monitor Speed"
 }

@@ -31,7 +31,7 @@ const fieldTemplate = {
 };
 const particleTemplate = {
   id: 0, position: [0, 0, 0], radius: 1, velocity: [0, 0, 0],
-  charge: 1, mass: 1, trailVisible: true, gravityConstant: 10, enableGravity: false
+  charge: 1, mass: 1, trailVisible: true, gravityConstant: 10, enableGravity: false,monitorVisible:false
 };
 
 // ════════════════════════════════════════════

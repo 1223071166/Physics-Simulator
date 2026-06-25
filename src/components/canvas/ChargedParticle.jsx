@@ -4,6 +4,7 @@ import { OrbitControls, Text,Trail } from '@react-three/drei';
 import * as THREE from 'three';
 import { createFieldInstance } from '../util/FieldStrategies';
 import {TimeProvider,useTime} from '../util/Time';
+import { registerParticleRefs, unregisterParticleRefs } from '../util/Particlerefstore.jsx'; // 【新增】实时检测功能
 // Boris 算法 + AABB 碰撞
 export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync,trailInfo,onRefReady}) {
   const meshRef = useRef();
@@ -31,6 +32,14 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
     onRefReady?.(particle.id, posRef.current);
     return () => onRefReady?.(particle.id, null);
   }, [particle.id, onRefReady]);
+
+  // 【新增】实时检测功能：把 pos/vel 的 ref 注册到共享 store，
+  // 这样 ParticleMonitor 浮动卡片可以用 rAF 直接读取最新值，
+  // 不需要把每帧的物理状态同步进 React state（避免 60fps 重渲染）
+  useEffect(() => {
+    registerParticleRefs(particle.id, posRef, velRef);
+    return () => unregisterParticleRefs(particle.id);
+  }, [particle.id]);
   
   // 🌟 将纯数据对象转化为具有多态 getVector 方法的类实例
   // 仅在场数据发生变化时重新实例化，保护引擎性能
