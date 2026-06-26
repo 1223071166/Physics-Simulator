@@ -3,143 +3,324 @@ import { useFrame,useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createFieldInstance } from '../util/FieldStrategies';
 import {TimeProvider,useTime} from '../util/Time';
-
-// ============================================================================
-// 🧱 1. 形状策略库 (Shape Strategies)
-// 未来如果要拓展球形场、环形场，直接在这里像拼积木一样添加新的 key 即可！
-// ============================================================================
 const SHAPE_STRATEGIES = {
   // --- 矩形场策略 ---
-  box: {
-    // 渲染外框线框
-    renderWireframe: (field, color) => {
-      const [sx, sy, sz] = field.start;
-      const [ex, ey, ez] = field.end;
-      const size = [Math.abs(ex - sx), Math.abs(ey - sy), Math.abs(ez - sz)];
-      const center = [(sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2];
-      return (
-        <mesh position={center}>
-          <boxGeometry args={size} />
-          <meshBasicMaterial color={color} wireframe={true} transparent opacity={0.15} />
-        </mesh>
-      );
-    },
-    // 计算特征长度（用于自适应 LOD 间距）
+box: {
+    renderWireframe: (field, color, cameraPosition) => {
+    const [sx, sy, sz] = field.start;
+    const [ex, ey, ez] = field.end;
+
+    const isInfX = field.is_infinite?.[0] ?? false;
+    const isInfY = field.is_infinite?.[1] ?? false;
+    const isInfZ = field.is_infinite?.[2] ?? false;
+
+    const HALF_EXTENT = 500;
+    const camX = cameraPosition?.x ?? 0;
+    const camY = cameraPosition?.y ?? 0;
+    const camZ = cameraPosition?.z ?? 0;
+
+    // 无限轴：用摄像头坐标 ±1000 替换；有限轴：保持原始 start/end
+    const resolvedMinX = isInfX ? camX - HALF_EXTENT : Math.min(sx, ex);
+    const resolvedMaxX = isInfX ? camX + HALF_EXTENT : Math.max(sx, ex);
+    const resolvedMinY = isInfY ? camY - HALF_EXTENT : Math.min(sy, ey);
+    const resolvedMaxY = isInfY ? camY + HALF_EXTENT : Math.max(sy, ey);
+    const resolvedMinZ = isInfZ ? camZ - HALF_EXTENT : Math.min(sz, ez);
+    const resolvedMaxZ = isInfZ ? camZ + HALF_EXTENT : Math.max(sz, ez);
+
+    const size = [
+      resolvedMaxX - resolvedMinX,
+      resolvedMaxY - resolvedMinY,
+      resolvedMaxZ - resolvedMinZ,
+    ];
+    const center = [
+      (resolvedMinX + resolvedMaxX) / 2,
+      (resolvedMinY + resolvedMaxY) / 2,
+      (resolvedMinZ + resolvedMaxZ) / 2,
+    ];
+
+    return (
+      <mesh position={center}>
+        <boxGeometry args={size} />
+        <meshBasicMaterial color={color} wireframe={true} transparent opacity={0.15} />
+      </mesh>
+    );
+  },
+
     getCharLength: (field) => {
+      if(field.is_infinite[0]||field.is_infinite[1]||field.is_infinite[2])
+        return 9999;
       const w = Math.abs(field.end[0] - field.start[0]);
       const h = Math.abs(field.end[1] - field.start[1]);
       const d = Math.abs(field.end[2] - field.start[2]);
       return Math.cbrt(w * h * d);
     },
-    // 收集矩形内部所有的采样点
-    getSamplePoints: (field, spacing) => {
-      const points = [];
-      const [sx, sy, sz] = field.start;
-      const [ex, ey, ez] = field.end;
-      const minX = Math.min(sx, ex), maxX = Math.max(sx, ex);
-      const minY = Math.min(sy, ey), maxY = Math.max(sy, ey);
-      const minZ = Math.min(sz, ez), maxZ = Math.max(sz, ez);
 
-      const dimX = maxX - minX;
-      const dimY = maxY - minY;
-      const dimZ = maxZ - minZ;
+    //判断点 (x, y, z) 是否在矩形场内
+    containsPoint: (field, x, y, z) => {
+      const minX = Math.min(field.start[0], field.end[0]);
+      const maxX = Math.max(field.start[0], field.end[0]);
+      const minY = Math.min(field.start[1], field.end[1]);
+      const maxY = Math.max(field.start[1], field.end[1]);
+      const minZ = Math.min(field.start[2], field.end[2]);
+      const maxZ = Math.max(field.start[2], field.end[2]);
+      return x >= minX && x <= maxX &&
+             y >= minY && y <= maxY &&
+             z >= minZ && z <= maxZ;
+    },
 
-      //如果有长度为零的情况就不要找点了
-      if (dimX === 0 || dimY === 0 || dimZ === 0) {
-        return points;
-      }
-      // 每个轴的间距 = min(全局spacing, 该轴长度)，确保至少塞进 1 层
-      // Math.min(spacing, dim) 保证了 offset = spX/2 <= dim，循环必定执行一次
-      const spX = Math.min(spacing, dimX);
-      const spY = Math.min(spacing, dimY);
-      const spZ = Math.min(spacing, dimZ);
+    
+    getSamplePoints: (field, spacing, cameraPosition, maxRenderCount) => {
+    const points = [];
+    const [sx, sy, sz] = field.start;
+    const [ex, ey, ez] = field.end;
 
-      for (let x = minX + spX / 2; x <= maxX; x += spX) {
-        for (let y = minY + spY / 2; y <= maxY; y += spY) {
-          for (let z = minZ + spZ / 2; z <= maxZ; z += spZ) {
-            points.push(new THREE.Vector3(x, y, z));
-          }
+    const isInfX = field.is_infinite?.[0] ?? false;
+    const isInfY = field.is_infinite?.[1] ?? false;
+    const isInfZ = field.is_infinite?.[2] ?? false;
+
+    // ── 有限轴：沿用原有逻辑 ──────────────────────────────────────
+    const minX = Math.min(sx, ex), maxX = Math.max(sx, ex);
+    const minY = Math.min(sy, ey), maxY = Math.max(sy, ey);
+    const minZ = Math.min(sz, ez), maxZ = Math.max(sz, ez);
+
+    const dimX = maxX - minX;
+    const dimY = maxY - minY;
+    const dimZ = maxZ - minZ;
+
+    // 有限轴维度为 0 时跳过（无限轴不受此限制）
+    if ((!isInfX && dimX === 0) ||
+        (!isInfY && dimY === 0) ||
+        (!isInfZ && dimZ === 0)) return points;
+
+    const spX = isInfX ? spacing : Math.min(spacing, dimX);
+    const spY = isInfY ? spacing : Math.min(spacing, dimY);
+    const spZ = isInfZ ? spacing : Math.min(spacing, dimZ);
+
+    // ── 无限轴：以摄像头投影坐标为中心，向两侧扩展 ───────────────
+    //
+    // 策略：从 maxRenderCount 反推"需要多少层半径"。
+    //
+    // 设三轴层数分别为 nX, nY, nZ，则总候选点数 ≈ nX * nY * nZ。
+    // 为了让排序后能稳定取到 maxRenderCount 个，候选池至少是目标的 ~2 倍。
+    // 这里用 cbrt(maxRenderCount * 2) 作为每轴的"半扩展层数"，
+    // 有限轴的层数由其真实维度决定，无限轴才用这个估算值。
+    const count = maxRenderCount ?? 512;
+    const halfLayers = Math.ceil(Math.cbrt(count * 2));
+
+    // 有限轴：直接用 [min, max]
+    // 无限轴：以摄像头在该轴上的坐标为中心，向两侧各扩展 halfLayers 个间距
+    const camX = cameraPosition?.x ?? 0;
+    const camY = cameraPosition?.y ?? 0;
+    const camZ = cameraPosition?.z ?? 0;
+
+    // 将摄像头坐标对齐到最近的 spacing 格点，再向两侧扩展
+    const snapToGrid = (camCoord, sp) =>
+      Math.round(camCoord / sp) * sp;
+
+    const centerX = snapToGrid(camX, spX);
+    const centerY = snapToGrid(camY, spY);
+    const centerZ = snapToGrid(camZ, spZ);
+
+    const loX = isInfX ? centerX - halfLayers * spX : minX + spX / 2;
+    const hiX = isInfX ? centerX + halfLayers * spX : maxX;
+    const loY = isInfY ? centerY - halfLayers * spY : minY + spY / 2;
+    const hiY = isInfY ? centerY + halfLayers * spY : maxY;
+    const loZ = isInfZ ? centerZ - halfLayers * spZ : minZ + spZ / 2;
+    const hiZ = isInfZ ? centerZ + halfLayers * spZ : maxZ;
+
+    // 有限轴起点已内嵌 +sp/2 偏移（原逻辑），无限轴格点本身就是采样中心
+    const stepX = (x) => isInfX ? x : x; // 起点已处理，循环写法统一
+    
+    for (let x = loX; x <= hiX; x += spX) {
+      // 有限轴额外检查边界（防止浮点误差越界）
+      if (!isInfX && (x < minX || x > maxX)) continue;
+
+      for (let y = loY; y <= hiY; y += spY) {
+        if (!isInfY && (y < minY || y > maxY)) continue;
+
+        for (let z = loZ; z <= hiZ; z += spZ) {
+          if (!isInfZ && (z < minZ || z > maxZ)) continue;
+
+          points.push(new THREE.Vector3(x, y, z));
         }
       }
-      return points;
     }
+
+    // 按距摄像头由近及远排序，返回前 maxRenderCount 个
+    return sortAndSlice(points, cameraPosition, maxRenderCount);
+  }
+},
+cylinder: {
+  renderWireframe: (field, color, cameraPosition) => {
+    const [sx, sy, sz] = field.start;
+    const [ex, ey, ez] = field.end;
+    const radius = field.radius || 1;
+
+    const isInfAxis   = field.is_infinite?.[0] ?? false;
+    const isInfRadius = field.is_infinite?.[1] ?? false;
+
+    const HALF_EXTENT = 500;
+
+    const axisVec = new THREE.Vector3(ex - sx, ey - sy, ez - sz);
+    const axisUnit = axisVec.clone().normalize();
+
+    // ── 轴向无限：将 start/end 沿轴线方向各延伸 HALF_EXTENT ──
+    // 以原始中点为基准，沿轴单位向量两侧各推 HALF_EXTENT
+    const origCenter = new THREE.Vector3(
+      (sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2
+    );
+    const resolvedH = isInfAxis
+      ? HALF_EXTENT * 2
+      : axisVec.length();
+
+    // 轴向无限时中心跟随摄像头在轴线上的投影，让线框始终套住视角
+    let center;
+    if (isInfAxis && cameraPosition) {
+      const cam = new THREE.Vector3(
+        cameraPosition.x, cameraPosition.y, cameraPosition.z
+      );
+      // 摄像头投影到轴线上的标量 t，以原始 start 为原点
+      const startVec = new THREE.Vector3(sx, sy, sz);
+      const t = cam.clone().sub(startVec).dot(axisUnit);
+      // 中心 = start + t * axisUnit（沿轴跟随摄像头）
+      center = startVec.clone().addScaledVector(axisUnit, t).toArray();
+    } else {
+      center = origCenter.toArray();
+    }
+
+    // ── 径向无限：渲染半径改用一个足够大的值 ──
+    const resolvedRadius = isInfRadius ? HALF_EXTENT : radius;
+
+    const defaultAxis = new THREE.Vector3(0, 1, 0);
+    const quaternion = new THREE.Quaternion()
+      .setFromUnitVectors(defaultAxis, axisUnit);
+
+    return (
+      <mesh position={center} quaternion={quaternion}>
+        <cylinderGeometry args={[resolvedRadius, resolvedRadius, resolvedH, 16]} />
+        <meshBasicMaterial color={color} wireframe={true} transparent opacity={0.15} />
+      </mesh>
+    );
   },
 
-  cylinder: {
-    renderWireframe: (field, color) => {
-      const [sx, sy, sz] = field.start;
-      const [ex, ey, ez] = field.end;
-      const center = [(sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2];
-  
-      const axisVec = new THREE.Vector3(ex - sx, ey - sy, ez - sz);
-      const h = axisVec.length();
-      const radius = field.radius || 1;
-  
-      // 计算从默认 Y 轴旋转到目标轴线所需的四元数
-      const defaultAxis = new THREE.Vector3(0, 1, 0);
-      const targetAxis = axisVec.clone().normalize();
-      const quaternion = new THREE.Quaternion().setFromUnitVectors(defaultAxis, targetAxis);
-  
-      return (
-        <mesh position={center} quaternion={quaternion}>
-          <cylinderGeometry args={[radius, radius, h, 16]} />
-          <meshBasicMaterial color={color} wireframe={true} transparent opacity={0.15} />
-        </mesh>
-      );
-    },
-  
-    getCharLength: (field) => {
-      const [sx, sy, sz] = field.start;
-      const [ex, ey, ez] = field.end;
-      const h = Math.sqrt(
-        (ex-sx)**2 + (ey-sy)**2 + (ez-sz)**2
-      );
-      const radius = field.radius || 1;
-      return Math.cbrt(Math.PI * radius * radius * h);
-    },
-  
-    getSamplePoints: (field, spacing) => {
-      const points = [];
-      const start = new THREE.Vector3(...field.start);
-      const end   = new THREE.Vector3(...field.end);
-      const radius = field.radius || 1;
-  
-      // ── 轴线单位向量 ──────────────────────────────────────────
-      const axis = new THREE.Vector3().subVectors(end, start);
-      const h = axis.length();
-      const axisUnit = axis.clone().normalize();
-      // ── 包围盒（AABB）确定采样范围 ───────────────────────────
-      const minX = Math.min(start.x, end.x) - radius;
-      const maxX = Math.max(start.x, end.x) + radius;
-      const minY = Math.min(start.y, end.y) - radius;
-      const maxY = Math.max(start.y, end.y) + radius;
-      const minZ = Math.min(start.z, end.z) - radius;
-      const maxZ = Math.max(start.z, end.z) + radius;
-      if(h==0 || radius==0){
-        return points;
+  getCharLength: (field) => {
+    if (field.is_infinite?.[0] || field.is_infinite?.[1]) return 9999;
+    const [sx, sy, sz] = field.start;
+    const [ex, ey, ez] = field.end;
+    const h = Math.sqrt((ex-sx)**2 + (ey-sy)**2 + (ez-sz)**2);
+    const radius = field.radius || 1;
+    return Math.cbrt(Math.PI * radius * radius * h);
+  },
+
+  containsPoint: (field, x, y, z) => {
+    const start = new THREE.Vector3(...field.start);
+    const end   = new THREE.Vector3(...field.end);
+    const radius = field.radius || 1;
+    const isInfAxis   = field.is_infinite?.[0] ?? false;
+    const isInfRadius = field.is_infinite?.[1] ?? false;
+
+    const axis = new THREE.Vector3().subVectors(end, start);
+    const h = axis.length();
+    if (h === 0 || radius === 0) return false;
+    const axisUnit = axis.clone().normalize();
+    const v = new THREE.Vector3(x, y, z).sub(start);
+    const t = v.dot(axisUnit);
+
+    // 轴向无限：不检查 t 范围
+    if (!isInfAxis && (t < 0 || t > h)) return false;
+
+    const radialVec = v.clone().addScaledVector(axisUnit, -t);
+
+    // 径向无限：不检查半径
+    if (isInfRadius) return true;
+    return radialVec.lengthSq() <= radius * radius;
+  },
+
+  getSamplePoints: (field, spacing, cameraPosition, maxRenderCount) => {
+    const points = [];
+    const start = new THREE.Vector3(...field.start);
+    const end   = new THREE.Vector3(...field.end);
+    const radius = field.radius || 1;
+
+    const isInfAxis   = field.is_infinite?.[0] ?? false;
+    const isInfRadius = field.is_infinite?.[1] ?? false;
+
+    const axis = new THREE.Vector3().subVectors(end, start);
+    const h = axis.length();
+    const axisUnit = axis.clone().normalize();
+
+    if (h === 0 || radius === 0) return points;
+
+    const count = maxRenderCount ?? 512;
+    const halfLayers = Math.ceil(Math.cbrt(count * 2));
+
+    const camX = cameraPosition?.x ?? 0;
+    const camY = cameraPosition?.y ?? 0;
+    const camZ = cameraPosition?.z ?? 0;
+    const cam = new THREE.Vector3(camX, camY, camZ);
+
+    const spRadial = Math.min(spacing, isInfRadius ? spacing : radius * 2);
+    const spAxial  = Math.min(spacing, h);
+
+    // ── 径向采样范围 ──
+    // 径向无限：以摄像头投影到截面上的点为中心扩展
+    // 径向有限：沿用原包围盒逻辑
+    const resolvedRadius = isInfRadius ? halfLayers * spRadial : radius;
+
+    const minX = Math.min(start.x, end.x) - resolvedRadius;
+    const maxX = Math.max(start.x, end.x) + resolvedRadius;
+    const minY = Math.min(start.y, end.y) - resolvedRadius;
+    const maxY = Math.max(start.y, end.y) + resolvedRadius;
+    const minZ = Math.min(start.z, end.z) - resolvedRadius;
+    const maxZ = Math.max(start.z, end.z) + resolvedRadius;
+
+    // ── 轴向采样范围 ──
+    // 轴向无限：以摄像头在轴线的投影为中心，向两侧扩展 halfLayers 层
+    const snapToGrid = (v, sp) => Math.round(v / sp) * sp;
+
+    let axialLo, axialHi, axialCenter;
+    if (isInfAxis) {
+      // 摄像头在轴线上的投影 t 值
+      const tCam = cam.clone().sub(start).dot(axisUnit);
+      const tSnapped = snapToGrid(tCam, spAxial);
+      axialLo = tSnapped - halfLayers * spAxial;
+      axialHi = tSnapped + halfLayers * spAxial;
     }
-      // 径向和轴向分别保底
-      // 径向 spacing：不能比直径还大（否则中心那一圈没有点）
-      const spRadial = Math.min(spacing, radius * 2);
-      // 轴向 spacing：不能比高度还大
-      const spAxial  = Math.min(spacing, h);
 
-      // 包围盒步长也用 spRadial（XYZ 全局方向），轴向约束通过投影 t 检查
-      for (let x = minX + spRadial / 2; x <= maxX; x += spRadial) {
-        for (let y = minY + spRadial / 2; y <= maxY; y += spRadial) {
-          for (let z = minZ + spRadial / 2; z <= maxZ; z += spRadial) {
-            const p = new THREE.Vector3(x, y, z);
-            const v = new THREE.Vector3().subVectors(p, start);
-            const t = v.dot(axisUnit);
+    for (let x = minX + spRadial / 2; x <= maxX; x += spRadial) {
+      for (let y = minY + spRadial / 2; y <= maxY; y += spRadial) {
+        for (let z = minZ + spRadial / 2; z <= maxZ; z += spRadial) {
+          const p = new THREE.Vector3(x, y, z);
+          const v = new THREE.Vector3().subVectors(p, start);
+          const t = v.dot(axisUnit);
 
-            // ✅ 轴向保底：用 spAxial 约束 t 的有效范围
-            // 等价于：点必须落在 [0, h] 的"轴向格子"里
+          // ── 轴向判定 ──
+          if (isInfAxis) {
+            // 轴向层对齐（同有限情形）
+            const tLayer = Math.floor((t - axialLo) / spAxial) * spAxial + axialLo + spAxial / 2;
+            if (tLayer < axialLo || tLayer > axialHi) continue;
+
+            const radialVec = v.clone().addScaledVector(axisUnit, -t);
+            const inRadius = isInfRadius
+              ? true
+              : radialVec.lengthSq() <= radius * radius;
+
+            if (inRadius) {
+              const snappedP = start.clone()
+                .addScaledVector(axisUnit, tLayer)
+                .add(radialVec);
+              points.push(snappedP);
+            }
+          } else {
             const tLayer = Math.floor(t / spAxial) * spAxial + spAxial / 2;
             if (tLayer < 0 || tLayer > h) continue;
 
             const radialVec = v.clone().addScaledVector(axisUnit, -t);
-            if (radialVec.lengthSq() <= radius * radius) {
-              // 把点移到对应轴向层的中心（避免斜轴时点位漂移）
+            const inRadius = isInfRadius
+              ? true
+              : radialVec.lengthSq() <= radius * radius;
+
+            if (inRadius) {
               const snappedP = start.clone()
                 .addScaledVector(axisUnit, tLayer)
                 .add(radialVec);
@@ -148,117 +329,197 @@ const SHAPE_STRATEGIES = {
           }
         }
       }
-      return points;
     }
-  },
-  torus: {
-    // 线框：用内外两个同轴圆柱叠加，直观表达环形截面
-    renderWireframe: (field, color) => {
-      const [sx, sy, sz] = field.start;
-      const [ex, ey, ez] = field.end;
-      const center = [(sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2];
 
-      const axisVec = new THREE.Vector3(ex - sx, ey - sy, ez - sz);
-      const h = axisVec.length();
-      const outerRadius = field.radius      || 2;
-      const innerRadius = field.innerRadius || 1;
-
-      const defaultAxis = new THREE.Vector3(0, 1, 0);
-      const targetAxis  = axisVec.clone().normalize();
-      const quaternion  = new THREE.Quaternion().setFromUnitVectors(defaultAxis, targetAxis);
-
-      return (
-        (innerRadius<outerRadius) &&(<group position={center} quaternion={quaternion}>
-          {/* 外壁圆柱 */}
-          <mesh>
-            <cylinderGeometry args={[outerRadius, outerRadius, h, 32]} />
-            <meshBasicMaterial color={color} wireframe transparent opacity={0.15} />
-          </mesh>
-          {/* 内壁圆柱 */}
-          <mesh>
-            <cylinderGeometry args={[innerRadius, innerRadius, h, 32]} />
-            <meshBasicMaterial color={color} wireframe transparent opacity={0.15} />
-          </mesh>
-        </group>) 
-      );
-    },
-
-    // 特征长度：环形体积开立方（体积 = π(ro² - ri²) × h）
-    getCharLength: (field) => {
-      const [sx, sy, sz] = field.start;
-      const [ex, ey, ez] = field.end;
-      const h  = Math.sqrt((ex-sx)**2 + (ey-sy)**2 + (ez-sz)**2);
-      const ro = field.radius      || 2;
-      const ri = field.innerRadius || 1;
-      return Math.cbrt(Math.PI * (ro * ro - ri * ri) * h);
-    },
-
-    // 采样点：包围盒三重循环 + 轴向层对齐 + 环形径向双重过滤
-    getSamplePoints: (field, spacing) => {
-      const points = [];
-      const start = new THREE.Vector3(...field.start);
-      const end   = new THREE.Vector3(...field.end);
-      const outerRadius = field.radius      || 2;
-      const innerRadius = field.innerRadius || 1;
-
-      const axis     = new THREE.Vector3().subVectors(end, start);
-      const h        = axis.length();
-      const axisUnit = axis.clone().normalize();
-
-      if (h === 0 || outerRadius <= 0 || innerRadius >= outerRadius) return points;
-
-      // 包围盒以外径为扩展边界
-      const minX = Math.min(start.x, end.x) - outerRadius;
-      const maxX = Math.max(start.x, end.x) + outerRadius;
-      const minY = Math.min(start.y, end.y) - outerRadius;
-      const maxY = Math.max(start.y, end.y) + outerRadius;
-      const minZ = Math.min(start.z, end.z) - outerRadius;
-      const maxZ = Math.max(start.z, end.z) + outerRadius;
-
-      // 径向 spacing 保底：不超过环形宽度，否则整个环里没有点
-      const ringWidth = outerRadius - innerRadius;
-      const spRadial  = Math.min(spacing, ringWidth);
-      const spAxial   = Math.min(spacing, h);
-
-      const outerRadiusSq = outerRadius * outerRadius;
-      const innerRadiusSq = innerRadius * innerRadius;
-
-      // 预分配临时向量，避免循环内 new
-      const p         = new THREE.Vector3();
-      const v         = new THREE.Vector3();
-      const radialVec = new THREE.Vector3();
-
-      for (let x = minX + spRadial / 2; x <= maxX; x += spRadial) {
-        for (let y = minY + spRadial / 2; y <= maxY; y += spRadial) {
-          for (let z = minZ + spRadial / 2; z <= maxZ; z += spRadial) {
-            p.set(x, y, z);
-            v.subVectors(p, start);
-            const t = v.dot(axisUnit);
-
-            // 轴向层对齐（与 cylinder 策略保持一致）
-            const tLayer = Math.floor(t / spAxial) * spAxial + spAxial / 2;
-            if (tLayer < 0 || tLayer > h) continue;
-
-            // 径向向量 = v - t * axisUnit（垂直于轴线的分量）
-            radialVec.copy(v).addScaledVector(axisUnit, -t);
-            const rSq = radialVec.lengthSq();
-
-            // 环形判定：innerRadius < r < outerRadius
-            if (rSq > innerRadiusSq && rSq < outerRadiusSq) {
-              // 对齐到轴向层中心，保持径向偏移不变
-              const snappedP = start.clone()
-                .addScaledVector(axisUnit, tLayer)
-                .add(radialVec);
-              points.push(snappedP);
-            }
-          }
-        }
-      }
-      return points;
-    }
+    return sortAndSlice(points, cameraPosition, maxRenderCount);
   }
-};
+},
 
+torus: {
+  renderWireframe: (field, color, cameraPosition) => {
+    const [sx, sy, sz] = field.start;
+    const [ex, ey, ez] = field.end;
+    const outerRadius = field.radius      || 2;
+    const innerRadius = field.innerRadius || 1;
+    if (innerRadius >= outerRadius) return null;
+
+    const isInfAxis = field.is_infinite?.[0] ?? false;
+    const HALF_EXTENT = 500;
+
+    const axisVec  = new THREE.Vector3(ex - sx, ey - sy, ez - sz);
+    const axisUnit = axisVec.clone().normalize();
+
+    const resolvedH = isInfAxis ? HALF_EXTENT * 2 : axisVec.length();
+
+    // 轴向无限时中心沿轴跟随摄像头，与 cylinder 处理方式一致
+    let center;
+    if (isInfAxis && cameraPosition) {
+      const startVec = new THREE.Vector3(sx, sy, sz);
+      const cam = new THREE.Vector3(
+        cameraPosition.x, cameraPosition.y, cameraPosition.z
+      );
+      const t = cam.clone().sub(startVec).dot(axisUnit);
+      center = startVec.clone().addScaledVector(axisUnit, t).toArray();
+    } else {
+      center = [(sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2];
+    }
+
+    const defaultAxis = new THREE.Vector3(0, 1, 0);
+    const quaternion  = new THREE.Quaternion()
+      .setFromUnitVectors(defaultAxis, axisUnit);
+
+    return (
+      <group position={center} quaternion={quaternion}>
+        <mesh>
+          <cylinderGeometry args={[outerRadius, outerRadius, resolvedH, 32]} />
+          <meshBasicMaterial color={color} wireframe transparent opacity={0.15} />
+        </mesh>
+        <mesh>
+          <cylinderGeometry args={[innerRadius, innerRadius, resolvedH, 32]} />
+          <meshBasicMaterial color={color} wireframe transparent opacity={0.15} />
+        </mesh>
+      </group>
+    );
+  },
+
+  getCharLength: (field) => {
+    if (field.is_infinite?.[0]) return 9999;
+    const [sx, sy, sz] = field.start;
+    const [ex, ey, ez] = field.end;
+    const h  = Math.sqrt((ex-sx)**2 + (ey-sy)**2 + (ez-sz)**2);
+    const ro = field.radius      || 2;
+    const ri = field.innerRadius || 1;
+    return Math.cbrt(Math.PI * (ro * ro - ri * ri) * h);
+  },
+
+  containsPoint: (field, x, y, z) => {
+    const start = new THREE.Vector3(...field.start);
+    const end   = new THREE.Vector3(...field.end);
+    const outerRadius = field.radius      || 2;
+    const innerRadius = field.innerRadius || 1;
+    const isInfAxis = field.is_infinite?.[0] ?? false;
+
+    const axis = new THREE.Vector3().subVectors(end, start);
+    const h = axis.length();
+    if (h === 0 || outerRadius <= 0 || innerRadius >= outerRadius) return false;
+    const axisUnit = axis.clone().normalize();
+    const v = new THREE.Vector3(x, y, z).sub(start);
+    const t = v.dot(axisUnit);
+
+    // 轴向无限：跳过 t 范围检查
+    if (!isInfAxis && (t < 0 || t > h)) return false;
+
+    const radialVec = v.clone().addScaledVector(axisUnit, -t);
+    const rSq = radialVec.lengthSq();
+    return rSq > innerRadius * innerRadius && rSq < outerRadius * outerRadius;
+  },
+
+  getSamplePoints: (field, spacing, cameraPosition, maxRenderCount) => {
+    const points  = [];
+    const start   = new THREE.Vector3(...field.start);
+    const end     = new THREE.Vector3(...field.end);
+    const outerRadius = field.radius      || 2;
+    const innerRadius = field.innerRadius || 1;
+    const isInfAxis = field.is_infinite?.[0] ?? false;
+
+    const axis     = new THREE.Vector3().subVectors(end, start);
+    const h        = axis.length();
+    const axisUnit = axis.clone().normalize();
+
+    if (h === 0 || outerRadius <= 0 || innerRadius >= outerRadius) return points;
+
+    const count      = maxRenderCount ?? 512;
+    const halfLayers = Math.ceil(Math.cbrt(count * 2));
+
+    const cam = new THREE.Vector3(
+      cameraPosition?.x ?? 0,
+      cameraPosition?.y ?? 0,
+      cameraPosition?.z ?? 0
+    );
+
+    const ringWidth = outerRadius - innerRadius;
+    const spRadial  = Math.min(spacing, ringWidth);
+    const spAxial   = Math.min(spacing, h);
+
+    const outerRadiusSq = outerRadius * outerRadius;
+    const innerRadiusSq = innerRadius * innerRadius;
+
+    const minX = Math.min(start.x, end.x) - outerRadius;
+    const maxX = Math.max(start.x, end.x) + outerRadius;
+    const minY = Math.min(start.y, end.y) - outerRadius;
+    const maxY = Math.max(start.y, end.y) + outerRadius;
+    const minZ = Math.min(start.z, end.z) - outerRadius;
+    const maxZ = Math.max(start.z, end.z) + outerRadius;
+
+    // ── 轴向范围（仅轴向无限时使用） ──
+    const snapToGrid = (v, sp) => Math.round(v / sp) * sp;
+    let axialLo, axialHi;
+    if (isInfAxis) {
+      const tCam     = cam.clone().sub(start).dot(axisUnit);
+      const tSnapped = snapToGrid(tCam, spAxial);
+      axialLo = tSnapped - halfLayers * spAxial;
+      axialHi = tSnapped + halfLayers * spAxial;
+    }
+
+    const p         = new THREE.Vector3();
+    const v         = new THREE.Vector3();
+    const radialVec = new THREE.Vector3();
+
+    for (let x = minX + spRadial / 2; x <= maxX; x += spRadial) {
+      for (let y = minY + spRadial / 2; y <= maxY; y += spRadial) {
+        for (let z = minZ + spRadial / 2; z <= maxZ; z += spRadial) {
+          p.set(x, y, z);
+          v.subVectors(p, start);
+          const t = v.dot(axisUnit);
+
+          // ── 轴向层对齐 ──
+          let tLayer;
+          if (isInfAxis) {
+            tLayer = Math.floor((t - axialLo) / spAxial) * spAxial + axialLo + spAxial / 2;
+            if (tLayer < axialLo || tLayer > axialHi) continue;
+          } else {
+            tLayer = Math.floor(t / spAxial) * spAxial + spAxial / 2;
+            if (tLayer < 0 || tLayer > h) continue;
+          }
+
+          radialVec.copy(v).addScaledVector(axisUnit, -t);
+          const rSq = radialVec.lengthSq();
+
+          if (rSq > innerRadiusSq && rSq < outerRadiusSq) {
+            const snappedP = start.clone()
+              .addScaledVector(axisUnit, tLayer)
+              .add(radialVec);
+            points.push(snappedP);
+          }
+        }
+      }
+    }
+
+    return sortAndSlice(points, cameraPosition, maxRenderCount);
+  }
+}
+}
+/**
+ * 将点数组按到摄像头的距离升序排序，返回前 maxRenderCount 个。
+ * @param {THREE.Vector3[]} points        - 候选点数组
+ * @param {THREE.Vector3}   cameraPosition - 摄像头世界坐标
+ * @param {number}          maxRenderCount - 最多返回多少个点（undefined 则全部返回）
+ * @returns {THREE.Vector3[]}
+ */
+function sortAndSlice(points, cameraPosition, maxRenderCount) {
+  // 没有传摄像头位置或没有点数限制时，直接原样返回
+  if (!cameraPosition || maxRenderCount == null) return points;
+
+  // 预计算每个点到摄像头的距离平方（避免开方，性能更好）
+  const withDist = points.map(p => ({
+    point: p,
+    distSq: p.distanceToSquared(cameraPosition)
+  }));
+
+  withDist.sort((a, b) => a.distSq - b.distSq);
+
+  return withDist.slice(0, maxRenderCount).map(item => item.point);
+}
 
 function FieldArrow({ position, field, type, color}) {
   const fieldInstance = useMemo(() => createFieldInstance(field), [field]);
@@ -369,41 +630,23 @@ function FieldArrow({ position, field, type, color}) {
   
 }
 export default function FieldVisualizer({ field, type, renderTrigger}) {
-   const color = type === 'E' ? '#4facfe' : '#ff4b4b';
-   const { camera } = useThree();
-
-  // 🎯 动态路由：根据数据里的 shape 匹配策略，如果没有匹配上（比如乱打的字）自动降级退回 box
+  const MAX_RENDER_COUNT = 300;
+  const color = type === 'E' ? '#4facfe' : '#ff4b4b';
+  const { camera } = useThree();
   const strategy = SHAPE_STRATEGIES[field.shape] || SHAPE_STRATEGIES.box;
 
-  // 这里的 useMemo 专门负责处理自适应空间采样与性能裁剪 (LOD)
   const visibleArrowPositions = useMemo(() => {
     const charLength = strategy.getCharLength(field);
-    const spacing = Math.max(1, Math.min(10, charLength * 0.2));
-    
-    // 模块化调用：获取特定形状内部的坐标点
-    const allPoints = strategy.getSamplePoints(field, spacing);
-    
-    // 获取相机世界坐标
-    const cax = camera.position.x;
-    const cay = camera.position.y;
-    const caz = camera.position.z;
-    
-    // 距离排序：离眼睛近的优先画
-    const sortedPoints = allPoints.map(pos => ({
-      pos,
-      dist: Math.hypot(pos.x - cax, pos.y - cay, pos.z - caz)
-    })).sort((a, b) => a.dist - b.dist);
-
-    // 预算裁剪：死死卡住最大只画 300 个箭头，防止极端情况下电脑卡死
-    const MAX_RENDER_COUNT = 300;
-    return sortedPoints.slice(0, MAX_RENDER_COUNT).map(item => item.pos);
+    const spacing = Math.max(1, Math.min(20, charLength * 0.2));
+    const allPoints = strategy.getSamplePoints(field, spacing,camera.position,MAX_RENDER_COUNT);
+    return allPoints;
   }, [field, camera, renderTrigger, strategy]);
 
   if (!field.visible || field.magnitude === 0) return null; //必须在一堆use的hook之后才能返回
   return (
     <group>
       {/* 🧩 模块化渲染 1：画外框线框 */}
-      {strategy.renderWireframe(field, color)}
+      {strategy.renderWireframe(field, color,camera.position)}
 
       {/* 🧩 模块化渲染 2：循环批量画箭头 */}
       
