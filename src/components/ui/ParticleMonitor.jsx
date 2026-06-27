@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { getParticleRefs } from '../util/Particlerefstore.jsx';
+import { getParticleRefs } from '../utils/Particlerefstore.jsx';
 
 // 实时检测卡片：勾选 ParticleCard 里的“实时检测”后弹出，
 // 可自由拖动，实时显示该粒子的 position / velocity / 速度大小。

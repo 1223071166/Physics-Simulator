@@ -2,9 +2,9 @@ import React, { useRef, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { OrbitControls, Text,Trail } from '@react-three/drei';
 import * as THREE from 'three';
-import { createFieldInstance } from '../util/FieldStrategies';
-import {TimeProvider,useTime} from '../util/Time';
-import { registerParticleRefs, unregisterParticleRefs } from '../util/Particlerefstore.jsx'; // 【新增】实时检测功能
+import { createFieldInstance } from '../utils/FieldStrategies';
+import {TimeProvider,useTime} from '../utils/Time';
+import { registerParticleRefs, unregisterParticleRefs } from '../utils/Particlerefstore.jsx'; // 【新增】实时检测功能
 // Boris 算法 + AABB 碰撞
 export default function ChargedParticle({ particle, electricFields, magneticFields, isRunning, resetTrigger, renderTrigger, onSync,trailInfo,onRefReady}) {
   const meshRef = useRef();
@@ -57,6 +57,7 @@ export default function ChargedParticle({ particle, electricFields, magneticFiel
   const netE = useMemo(() => new THREE.Vector3(), []);
   const netB = useMemo(() => new THREE.Vector3(), []);
   const tempFieldVec = useMemo(() => new THREE.Vector3(), []);
+  const gravityAcceleration = useMemo(() => new THREE.Vector3(0,0,-particle.gravityConstant), [particle.gravityConstant]);
   // Boris 算法专用中间变量
   const vMinus = useMemo(() => new THREE.Vector3(), []);
   const tVec = useMemo(() => new THREE.Vector3(), []);

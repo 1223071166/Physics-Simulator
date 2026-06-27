@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo, use } from 'react';
 import { useFrame,useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { createFieldInstance } from '../util/FieldStrategies';
-import {TimeProvider,useTime} from '../util/Time';
+import { createFieldInstance } from '../utils/FieldStrategies';
+import {TimeProvider,useTime} from '../utils/Time';
 const SHAPE_STRATEGIES = {
   // --- 矩形场策略 ---
 box: {
